@@ -259,7 +259,8 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 .kmlbl{background:#33475b;color:#fff;border:0;border-radius:6px;font:600 11.5px "IBM Plex Mono",monospace;padding:2px 7px;box-shadow:none}
 .kmlbl.osm{background:#fff;color:#1b2430;border:1px solid #b9c1cc}
 .kmlbl:before{display:none}
-@media (max-width:520px){ .brand-name{font-size:16px} .brand-proto-badge{font-size:9.5px;padding:3px 7px} }
+@media (max-width:520px){ .brand-name{font-size:clamp(13px,4.3vw,17px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .brand-proto-badge{display:none} }
+@media (max-width:899px){ .leaflet-control-attribution{font-size:8.5px!important;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 4px!important} .leaflet-bottom.leaflet-right{max-width:100%} }
 @media (min-width:900px){
   /* Seitenleiste links – wie RSA-Musterplangenerator und Schleppkurven-Tool */
   #app{display:grid;grid-template-columns:400px 1fr;grid-template-rows:auto minmax(0,1fr)}
@@ -274,7 +275,6 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 <div id="app">
   <header>
     <div class="brand"><div class="mark"><svg viewBox="0 0 64 64" width="28" height="28" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="12" fill="#0b3d91"/><polygon points="26,10 38,10 50,54 14,54" fill="#ffffff"/><rect x="30.5" y="16" width="3" height="7" fill="#0b3d91"/><rect x="29.5" y="27" width="4" height="8" fill="#0b3d91"/><rect x="28.3" y="39" width="5.4" height="9" fill="#0b3d91"/></svg></div><span class="brand-name">Betriebs-Kilometer auf Autobahnen</span><span class="brand-proto-badge">Prototyp</span></div>
-    <button class="hbtn" id="btnTheme" title="Hell/Dunkel" aria-label="Hell/Dunkel">◐</button>
     <button class="hbtn" id="btnMenuTop" title="Menü" aria-label="Menü">☰</button>
   </header>
   <div id="mapWrap">
@@ -295,7 +295,6 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
         <button type="button" role="switch" aria-checked="false" data-ref="A 81"><span class="trk"><span class="knb"></span></span><span>A 81</span></button>
         <button type="button" role="switch" aria-checked="false" data-ref="A 831"><span class="trk"><span class="knb"></span></span><span>A 831</span></button>
       </div>
-      <div class="tb-status" id="tafelStatus"></div>
     </section>
     <div class="row1">
       <span id="refLbl">–</span>
@@ -324,6 +323,10 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
     <div class="grp">
       <div class="seg" id="segMode"><button data-m="gps">Live-GPS</button><button data-m="map">Test: Karte antippen</button></div>
       <p class="hint" style="margin:0">Im Testmodus setzt ein Tipp in die Karte die Position – zum Ausprobieren am Schreibtisch.</p>
+    </div>
+    <h3>Darstellung</h3>
+    <div class="grp">
+      <div class="seg" id="segTheme"><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></div>
     </div>
     <h3>Suchen</h3>
     <div class="grp"><button class="btn small" id="btnAsbMenu">ASB-Lage suchen (AoA + Station)</button></div>
@@ -700,7 +703,7 @@ function initMap(){
   const satPur=satBild();
   satNamen.addTo(map);   // Grundeinstellung: immer Luftbild mit Namen
   L.control.layers({'Luftbild mit Namen':satNamen,'Luftbild ohne Namen':satPur,'Karte (basemap.de)':farbe,'Karte grau':grau},null,{position:'bottomleft'}).addTo(map);
-  L.control.zoom({position:'bottomright'}).addTo(map);
+  L.control.zoom({position:'topleft'}).addTo(map);
   layData=L.layerGroup().addTo(map); layCal=L.layerGroup().addTo(map);
   map.on('click',onMapClick);
   map.on('moveend',onMapMoved);
@@ -829,6 +832,7 @@ function syncButtons(){
   document.getElementById('chkOsm').checked=!!S.settings.useOsm;
   document.getElementById('chkCal').checked=S.settings.showCal!==false;
   document.documentElement.dataset.theme=S.settings.theme;
+  document.querySelectorAll('#segTheme button').forEach(b=>b.classList.toggle('on',b.dataset.t===(S.settings.theme==='dark'?'dark':'light')));
 }
 let toastT; function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toastT); toastT=setTimeout(()=>el.style.display='none',3500); }
 
@@ -1436,7 +1440,7 @@ function bind(){
   $('dlgCancel').onclick=closeDlg;
   $('dlgOk').onclick=()=>{ if(dlgOk&&dlgOk()===false) return; closeDlg(); };
   $('dlg').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('dlgOk').click(); } if(e.key==='Escape') closeDlg(); });
-  $('btnTheme').onclick=()=>{ S.settings.theme=S.settings.theme==='dark'?'light':'dark'; saveSettings(); syncButtons(); };
+  document.querySelectorAll('#segTheme button').forEach(b=>b.onclick=()=>{ S.settings.theme=b.dataset.t; saveSettings(); syncButtons(); });
   $('btnFollow').onclick=()=>{ S.settings.follow=!S.settings.follow; saveSettings(); syncButtons(); if(S.settings.follow&&S.pos) map.panTo([S.pos.lat,S.pos.lon]); };
   $('btnSwap').onclick=()=>{ const r=S.result; if(!r){ toast('Keine Achse erkannt.'); return; } S.heading=null; S.dirLock=(r.bearing+180)%360; S.chainCache=null; recompute(); toast('Richtungsfahrbahn gewechselt.'); };
   $('btnLoad').onclick=()=>{ const c=map.getCenter(); if(map.getZoom()<11){ toast('Bitte näher heranzoomen (Ausschnitt zu groß).'); return; } loadAround({lat:c.lat,lon:c.lng},true); };
