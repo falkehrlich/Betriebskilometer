@@ -137,6 +137,16 @@ if (j) {
     for (const m of c.ms) { const la = m[1] / 1e6, lo = m[2] / 1e6; let best = null, bd = 1e9;
       for (const s of segs) { const d = Math.hypot((s[0] - la) * 111320, (s[1] - lo) * 73500); if (d < bd) { bd = d; best = s[2]; } }
       if (!best) continue; st[best].n++; const v = parseFloat(String(m[3]).replace(',', '.')); if (isNaN(v)) st[best].ohne++; else st[best].vals.push(v); }
+    // Liste der Tafeln je Autobahn (für die Abdeckungsliste); gemeinsame Strecke zählt zur A 8 (dort gilt deren Kilometrierung)
+    const ab = { stand: c.stand, refs: {} };
+    for (const m of c.ms) { const la = m[1] / 1e6, lo = m[2] / 1e6; let best = null, bd = 1e9;
+      for (const s of segs) { const d = Math.hypot((s[0] - la) * 111320, (s[1] - lo) * 73500); if (d < bd) { bd = d; best = s[2]; } }
+      const v = parseFloat(String(m[3]).replace(',', '.')); if (!best || isNaN(v)) continue;
+      const own = String(m[4] || m[5] || ''); const k = best === 'A 8/A 81' ? 'A 8' : best;
+      if (own && !new RegExp('(^|;) *' + k.replace(' ', ' ?') + ' *(;|$)').test(own)) continue;   // Tafel einer anderen Autobahn am Knoten
+      (ab.refs[k] = ab.refs[k] || []).push([v, +la.toFixed(5), +lo.toFixed(5)]); }
+    for (const k in ab.refs) ab.refs[k].sort((x, y) => x[0] - y[0]);
+    fs.writeFileSync(path.join(DIST, 'abdeckung.json'), JSON.stringify(ab));
     for (const [k, v] of Object.entries(st)) console.log('Auswertung', k + ':', Math.round(v.km), 'km Fahrbahn (beide Richtungen),', v.n, 'Tafeln =', (v.n / Math.max(1, v.km) * 10).toFixed(1), 'je 10 km,', v.ohne, 'ohne km-Wert, km-Bereich', v.vals.length ? Math.min(...v.vals) + '–' + Math.max(...v.vals) : '–');
   } catch (e) { console.log('Auswertung fehlgeschlagen', e.message); }
 } else {
