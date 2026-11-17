@@ -239,9 +239,6 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 .cv-swap:before,.cv-swap:after{content:"";flex:1;height:1px;background:var(--border)}
 .cv-swap button{width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(217,83,30,.35);cursor:pointer}
 .cv-km{font:700 34px/1.15 'IBM Plex Mono',monospace}
-.cv-refs{display:flex;gap:6px;margin-bottom:10px}
-.cv-refs button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:700 14px 'IBM Plex Mono',monospace;cursor:pointer}
-.cv-refs button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
 .cv-hits{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .cv-hits button{text-align:left;min-height:40px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:6px 10px;font:500 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
 .cv-hits button.on{border-color:var(--accent)}
@@ -1552,9 +1549,8 @@ function convHtml(side){
     return '<div class="cv-card"><div class="cv-h">Eingabe · ASB-Lage</div><label for="cvAoa">AoA (Abschnitt oder Ast)</label><input id="cvAoa" class="txt" autocomplete="off" placeholder="7220047O7220078O" value="'+esc(CV.aoa||'')+'"><div id="cvAoaInfo" class="hint" style="margin:4px 0 8px"></div><label for="cvSt">Station [m]</label><input id="cvSt" inputmode="decimal" autocomplete="off" placeholder="709" value="'+esc(CV.st||'')+'"></div>'
       +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · Betriebs-km</div><div id="cvOut" class="cv-out">AoA und Station eingeben.</div></div>'+acts;
   }
-  const refs=['A 8','A 81','A 831'].map(r=>'<button type="button" data-ref="'+r+'" class="'+(CV.ref===r?'on':'')+'" aria-pressed="'+(CV.ref===r)+'">'+r+'</button>').join('');
-  return '<div class="cv-card"><div class="cv-h">Eingabe · Betriebs-km</div><label>Autobahn</label><div class="cv-refs" role="group" aria-label="Autobahn">'+refs+'</div><label for="cvKm">Betr.-km</label><input id="cvKm" inputmode="decimal" autocomplete="off" placeholder="205,408" value="'+esc(CV.km||'')+'"></div>'
-    +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · ASB-Lage</div><div id="cvOut" class="cv-out">Autobahn wählen und km eingeben.</div></div>'+acts;
+  return '<div class="cv-card"><div class="cv-h">Eingabe · Betriebs-km</div><label for="cvKm">Betr.-km</label><input id="cvKm" inputmode="decimal" autocomplete="off" placeholder="205,408" value="'+esc(CV.km||'')+'"><div class="hint" style="margin:4px 0 0">Autobahn wird automatisch erkannt (A 8, A 81, A 831).</div></div>'
+    +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · ASB-Lage</div><div id="cvOut" class="cv-out">Betr.-km eingeben.</div></div>'+acts;
 }
 function initConv(){
   CV=Object.assign({dir:'asb2km',aoa:'',st:'',ref:S.settings.tafelRef||'A 8',km:'',res:null,seq:0},LS.get(K_CONV,{}),{res:null,seq:0});
@@ -1589,7 +1585,6 @@ function renderConvert(){
   if(CV.dir==='asb2km'){
     ['cvAoa','cvSt'].forEach(id=>$$(id).addEventListener('input',()=>{ CV.aoa=$$('cvAoa').value; CV.st=$$('cvSt').value; saveConv(); convCalcSoon(); }));
   } else {
-    document.querySelectorAll('.cv-refs button').forEach(b=>b.onclick=()=>{ CV.ref=b.dataset.ref; document.querySelectorAll('.cv-refs button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed',x===b); }); saveConv(); convCalcSoon(); });
     $$('cvKm').addEventListener('input',()=>{ CV.km=$$('cvKm').value; saveConv(); convCalcSoon(); });
   }
   convCalc();
@@ -1637,21 +1632,37 @@ async function convCalc(){
     return;
   }
   const m=parseKm(CV.km);
-  if(!String(CV.km||'').trim()){ out.innerHTML='Autobahn wählen und km eingeben.'; return; }
+  if(!String(CV.km||'').trim()){ out.innerHTML='Betr.-km eingeben.'; return; }
   if(m===null){ out.innerHTML='<div class="err">km-Wert nicht erkannt (z. B. 205,408).</div>'; return; }
-  out.innerHTML='Suche km '+fmtKm1(m)+' auf der '+esc(CV.ref)+' …';
-  const hits=await kmToPoints(CV.ref,m); if(seq!==CV.seq) return;
-  if(!hits.length){ out.innerHTML='<div class="err">km '+fmtKm1(m)+' auf der '+esc(CV.ref)+' nicht gefunden. In der Nähe fehlen km-Punkte – Werkseinstellung oder eigene Punkte ergänzen.</div>'; return; }
+  out.innerHTML='Suche km '+fmtKm1(m)+' …';
+  if(S.snapP) await S.snapP; if(seq!==CV.seq) return;
+  // Autobahn automatisch: zuerst die, deren bekannter km-Bereich den Wert enthält; erst ohne Treffer die übrigen
+  const ALL=['A 8','A 81','A 831'];
+  const inBand=ALL.filter(r=>{ const b=refBand(r); return b&&m>=b[0]&&m<=b[1]; });
+  const rest=ALL.filter(r=>!inBand.includes(r));
+  let hits=[];
+  for(const grp of [inBand,rest]){
+    for(const ref of grp){
+      out.innerHTML='Suche km '+fmtKm1(m)+' auf der '+esc(ref)+' …';
+      const hs=await kmToPoints(ref,m); if(seq!==CV.seq) return;
+      hs.forEach(h=>{ h.ref=ref; if(!hits.some(x=>hav(x.p,h.p)<60)) hits.push(h); });
+    }
+    if(hits.length) break;
+  }
+  if(!hits.length){ out.innerHTML='<div class="err">km '+fmtKm1(m)+' auf A 8, A 81 und A 831 nicht gefunden. In der Nähe fehlen km-Punkte – Werkseinstellung oder eigene Punkte ergänzen.</div>'; return; }
+  const multiRef=new Set(hits.map(h=>h.ref)).size>1;
   const show=(h)=>{
     const ql=quality(h.r), qt={gruen:'genau',gelb:'brauchbar',rot:'geschätzt'}[ql]; const a=h.asb;
-    let html= a? '<div class="mono" style="font-weight:700;font-size:16px">ASB '+esc(a.a.k)+' · St. '+a.st.toLocaleString('de-DE')+'</div><div class="hint">'+esc(asbLabel(a.a))+' · '+a.a.L.toLocaleString('de-DE')+' m</div>' : '<div class="err">Keine ASB-Lage zu diesem Punkt gefunden.</div>';
+    CV.ref=h.ref;
+    let html='<div style="margin-bottom:4px"><b>'+esc(h.ref)+'</b> <span class="hint">· automatisch erkannt</span></div>';
+    html+= a? '<div class="mono" style="font-weight:700;font-size:16px">ASB '+esc(a.a.k)+' · St. '+a.st.toLocaleString('de-DE')+'</div><div class="hint">'+esc(asbLabel(a.a))+' · '+a.a.L.toLocaleString('de-DE')+' m</div>' : '<div class="err">Keine ASB-Lage zu diesem Punkt gefunden.</div>';
     html+='<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="badge q-'+ql+'" style="margin:0;padding:2px 8px">'+qt+'</span><span class="hint">gilt für beide Richtungsfahrbahnen</span></div><div class="mono hint" style="margin-top:6px">'+h.p.lat.toFixed(5)+', '+h.p.lon.toFixed(5)+'</div>';
-    CV.res={p:h.p,r:h.r,asb:a,text:CV.ref+' km '+fmtKm1(m)+' → '+(a?'ASB '+a.a.k+', Station '+a.st+' m ('+asbLabel(a.a)+')':'keine ASB-Lage')+'\nGPS '+h.p.lat.toFixed(5)+', '+h.p.lon.toFixed(5)};
+    CV.res={p:h.p,r:h.r,asb:a,text:h.ref+' km '+fmtKm1(m)+' → '+(a?'ASB '+a.a.k+', Station '+a.st+' m ('+asbLabel(a.a)+')':'keine ASB-Lage')+'\nGPS '+h.p.lat.toFixed(5)+', '+h.p.lon.toFixed(5)};
     return html;
   };
   let html=show(hits[0]);
   if(hits.length>1){
-    html='<div style="background:#fbf0cf;color:#6b4f0c;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:8px">km '+fmtKm1(m)+' kommt '+hits.length+'× vor (km-Sprung). Treffer wählen:</div><div id="cvSel">'+html+'</div><div class="cv-hits">'+hits.map((h,i)=>'<button type="button" data-i="'+i+'" class="'+(i===0?'on':'')+'">'+(h.asb?esc(asbLabel(h.asb.a)):'Treffer '+(i+1))+'</button>').join('')+'</div>';
+    html='<div style="background:#fbf0cf;color:#6b4f0c;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:8px">km '+fmtKm1(m)+' kommt '+hits.length+'× vor ('+(multiRef?'auf mehreren Autobahnen':'km-Sprung')+'). Treffer wählen:</div><div id="cvSel">'+html+'</div><div class="cv-hits">'+hits.map((h,i)=>'<button type="button" data-i="'+i+'" class="'+(i===0?'on':'')+'"><b>'+esc(h.ref)+'</b> · '+(h.asb?esc(asbLabel(h.asb.a)):'Treffer '+(i+1))+'</button>').join('')+'</div>';
   }
   out.innerHTML=html;
   out.querySelectorAll('.cv-hits button').forEach(b=>b.onclick=()=>{ out.querySelectorAll('.cv-hits button').forEach(x=>x.classList.toggle('on',x===b)); document.getElementById('cvSel').innerHTML=show(hits[+b.dataset.i]); });
