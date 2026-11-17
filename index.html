@@ -346,17 +346,12 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
       <div class="seg" id="segMode"><button data-m="gps">Live-GPS</button><button data-m="map">Test: Karte antippen</button></div>
       <p class="hint" style="margin:0">Im Testmodus setzt ein Tipp in die Karte die Position – zum Ausprobieren am Schreibtisch.</p>
     </div>
-    <h3>Darstellung</h3>
-    <div class="grp">
-      <div class="seg" id="segTheme"><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></div>
-    </div>
     <h3>Umrechnen</h3>
     <div class="grp"><button class="btn small" id="btnAsbMenu"><span>ASB-Lage</span> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px;margin:0 6px"><path d="M4 8h16M16 4l4 4-4 4"/><path d="M20 16H4M8 12l-4 4 4 4"/></svg> <span>Betriebs-km</span></button>
       <p class="hint" style="margin:0">AoA + Station in Betr.-km umrechnen – oder umgekehrt. Richtung per Pfeil wechseln.</p></div>
     <h3>Kalibrieren</h3>
     <div class="grp">
       <button class="btn small" id="btnCalMap">km-Punkt in Karte setzen</button>
-      <button class="btn small" id="btnCalSba">SBA-Standort in Karte setzen</button>
     </div>
     <h3>Listen importieren (CSV / Excel)</h3>
     <div class="grp">
@@ -372,13 +367,6 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
       <button class="btn small" id="btnExport">Export JSON</button>
       <button class="btn small" id="btnImport">Import JSON</button>
     </div>
-    <h3>Streckenabschnitte (Musterplangenerator)</h3>
-    <p class="hint" id="absInfo">Noch nicht importiert.</p>
-    <div class="grp" style="margin-top:8px;grid-template-columns:1fr 1fr">
-      <button class="btn small" id="btnImportAbs">Import JSON</button>
-      <button class="btn small danger" id="btnClearAbs">Entfernen</button>
-    </div>
-    <div id="absTbl" style="margin-top:8px"></div>
     <h3>Datenquellen</h3>
     <div class="grp">
       <label class="chk"><input type="checkbox" id="chkWerk"> Werkseinstellung verwenden (geprüfte km-Tafeln und SBA-Standorte)</label>
@@ -471,7 +459,7 @@ function pointAt(pts,cum,s){ // Punkt bei Laufmeter s
 const S = {
   settings: Object.assign({mode:'gps',useOsm:true,theme:'light',dirNames:{},follow:true,tafelRef:'A 8',useWerk:true}, LS.get(K_SET,{})),
   cal: LS.get(K_CAL,[]),
-  abs: LS.get(K_ABS,null),        // {imported, items:[...]}
+  abs: null,                      // Streckenabschnitte (Musterplangenerator) – entfernt        // {imported, items:[...]}
   ways: new Map(), startIdx:new Map(), endIdx:new Map(), milestones:new Map(),
   boxes: [], loading:false,
   pos: null, fixes: [], heading:null, speed:null,
@@ -985,8 +973,7 @@ function syncButtons(){
   document.getElementById('chkCal').checked=S.settings.showCal!==false;
   document.getElementById('chkWerk').checked=S.settings.useWerk!==false;
   document.getElementById('werkInfo').textContent= WERK.length? WERK.length+' geprüfte Punkte hinterlegt. Eigene Punkte im Umkreis von 100 m haben Vorrang.' : 'Noch keine geprüften Punkte hinterlegt. Erfasste Punkte über „Export JSON“ senden, dann werden sie als Werkseinstellung übernommen.';
-  document.documentElement.dataset.theme=S.settings.theme;
-  document.querySelectorAll('#segTheme button').forEach(b=>b.classList.toggle('on',b.dataset.t===(S.settings.theme==='dark'?'dark':'light')));
+  document.documentElement.dataset.theme='light';   // nur heller Modus
 }
 let toastT; function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toastT); toastT=setTimeout(()=>el.style.display='none',3500); }
 
@@ -1136,12 +1123,6 @@ function renderMenu(){
     document.getElementById('qGo').onclick=()=>{ document.getElementById('menu').classList.remove('show'); startQueue(); };
     document.getElementById('qDrop').onclick=()=>{ S.queue=null; LS.set(K_Q,null); renderMenu(); }; }
   else qb.innerHTML='';
-  const ai=document.getElementById('absInfo'), at=document.getElementById('absTbl');
-  if(!S.abs){ ai.textContent='Noch nicht importiert. Im Musterplangenerator: Streckenabschnitte-Grundeinstellung → „Exportieren“, Datei hier importieren.'; at.innerHTML=''; }
-  else {
-    ai.textContent=S.abs.items.length+' Abschnitte · importiert am '+new Date(S.abs.imported).toLocaleDateString('de-DE');
-    at.innerHTML='<div class="card"><table class="tbl"><tr><th>BAB</th><th>Ri.</th><th>Name</th><th>von–bis</th><th>Str.</th></tr>'+S.abs.items.slice().sort((a,b)=>a.autobahn.localeCompare(b.autobahn)||a.richtung.localeCompare(b.richtung)||a.vonKmM-b.vonKmM).map(a=>'<tr><td>'+esc(a.autobahn)+'</td><td>'+(a.richtung==='steigend'?'↑':'↓')+'</td><td>'+esc(a.name||'')+'</td><td class="n">'+fmtBetrKm(a.vonKmM)+'–'+fmtBetrKm(a.bisKmM)+'</td><td>'+esc((a.streifigkeit||'').replace('-streifig',''))+'</td></tr>').join('')+'</table></div>';
-  }
 }
 let importKind=null;
 function importFile(kind){ importKind=kind; const f=document.getElementById('fileIn'); f.value=''; f.click(); }
@@ -1820,7 +1801,6 @@ function bind(){
   $('dlgCancel').onclick=closeDlg;
   $('dlgOk').onclick=()=>{ if(dlgOk&&dlgOk()===false) return; closeDlg(); };
   $('dlg').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('dlgOk').click(); } if(e.key==='Escape') closeDlg(); });
-  document.querySelectorAll('#segTheme button').forEach(b=>b.onclick=()=>{ S.settings.theme=b.dataset.t; saveSettings(); syncButtons(); });
   $('btnFollow').onclick=()=>{ S.settings.follow=!S.settings.follow; saveSettings(); syncButtons(); if(S.settings.follow&&S.pos) map.panTo([S.pos.lat,S.pos.lon]); };
   $('dirLbl').onclick=()=>{
     const r=S.result; if(!r||!r.richtung){ toast('Fahrtrichtung noch unbekannt.'); return; }
@@ -1829,7 +1809,6 @@ function bind(){
   };
   document.querySelectorAll('#segMode button').forEach(b=>b.onclick=()=>{ setMode(b.dataset.m); $('menu').classList.remove('show'); });
   $('btnCalMap').onclick=()=>{ $('menu').classList.remove('show'); setPick('km'); };
-  $('btnCalSba').onclick=()=>{ $('menu').classList.remove('show'); setPick('sba'); };
   $('bannerCancel').onclick=()=>{ if(S.pick==='queue') endQueue(false); else setPick(null); };
   $('bannerSkip').onclick=skipQueue;
   document.querySelectorAll('#tafelSw button').forEach(b=>b.onclick=()=>{
@@ -1842,8 +1821,6 @@ function bind(){
   $('fileList').addEventListener('change',ev=>{ const f=ev.target.files[0]; if(f) startListImport(f); });
   $('btnExport').onclick=()=>{ if(!S.cal.length){ toast('Keine Punkte zum Exportieren.'); return; } exportCal(); };
   $('btnImport').onclick=()=>importFile('cal');
-  $('btnImportAbs').onclick=()=>importFile('abs');
-  $('btnClearAbs').onclick=()=>{ if(!S.abs) return; openDlg('Streckenabschnitte entfernen','<div class="msg">Importierte Abschnitte aus diesem Tool entfernen? Der Musterplangenerator bleibt unverändert.</div>','Entfernen',()=>{ S.abs=null; LS.set(K_ABS,null); renderMenu(); render(); return true; },'danger'); };
   $('chkWerk').onchange=e=>{ S.settings.useWerk=e.target.checked; saveSettings(); tafelKey=''; recompute(); drawTafeln(); toast(e.target.checked?'Werkseinstellung aktiv.':'Werkseinstellung aus – nur eigene Punkte und OSM.'); };
   $('chkCal').onchange=e=>{ S.settings.showCal=e.target.checked; saveSettings(); drawData(); tafelKey=''; drawTafeln(); toast(e.target.checked?'Eigene Punkte eingeblendet.':'Eigene Punkte ausgeblendet – sie zählen weiter für die Berechnung.'); };
   $('chkOsm').onchange=e=>{ S.settings.useOsm=e.target.checked; saveSettings(); drawData(); recompute(); };
