@@ -998,9 +998,9 @@ function queryHtml(){
     const d=Math.round(r.m-S.result.m);
     h+=' <span style="color:var(--text-muted)">· '+(Math.abs(d)<5?'an deiner Position':(Math.abs(d).toLocaleString('de-DE')+'\u202Fm '+(d>0?'km-aufwärts':'km-abwärts')+' von dir'))+'</span>';
   }
-  if(a&&isAst(a.a)) h+='<br>ASB: '+esc(asbLabel(a.a))+' (Ast)<br><span class="mono">Station '+a.st.toLocaleString('de-DE')+'\u202Fm von '+a.a.L.toLocaleString('de-DE')+'\u202Fm</span><br><span style="font-size:12px">'+astEndsHtml(a.a,()=>{ if(qMk&&qRes&&qRes.asb===a) qMk.setPopupContent(queryHtml()); })+'</span>';
-  else if(a) h+='<br>ASB: '+esc(a.a.n1||fmtNk(a.a.k.slice(0,8)))+' → '+esc(a.a.n2||fmtNk(a.a.k.slice(8)))+'<br><span class="mono">Station '+a.st.toLocaleString('de-DE')+'\u202Fm von '+a.a.L.toLocaleString('de-DE')+'\u202Fm</span>';
-  h+='<br><span class="mono" style="color:var(--text-muted)">'+q.p.lat.toFixed(5)+', '+q.p.lon.toFixed(5)+'</span>';
+  if(a&&isAst(a.a)) h+='<div class="mono" style="margin-top:6px;font-weight:600">ASB Ast '+esc(a.a.k)+' · St. '+a.st.toLocaleString('de-DE')+'</div><div style="font-size:12.5px;color:var(--text-muted)">'+esc(asbLabel(a.a))+' · '+a.a.L.toLocaleString('de-DE')+'\u202Fm</div><div style="font-size:12.5px">'+astEndsHtml(a.a,()=>{ if(qMk&&qRes&&qRes.asb===a) qMk.setPopupContent(queryHtml()); })+'</div>';
+  else if(a) h+='<div class="mono" style="margin-top:6px;font-weight:600">ASB '+esc(a.a.k)+' · St. '+a.st.toLocaleString('de-DE')+'</div><div style="font-size:12.5px;color:var(--text-muted)">'+esc(asbLabel(a.a))+' · '+a.a.L.toLocaleString('de-DE')+'\u202Fm</div>';
+  h+='<div class="mono" style="color:var(--text-muted);margin-top:4px">'+q.p.lat.toFixed(5)+', '+q.p.lon.toFixed(5)+'</div>';
   h+='<div class="asbbtns"><button class="btn small" data-q="copy">Kopieren</button><button class="btn small" data-q="cal">km-Tafel hier</button></div></div>';
   return h;
 }
@@ -1008,7 +1008,7 @@ function queryCopy(){
   const q=qRes; if(!q||!q.r) return; const r=q.r;
   const lines=[r.ref+' · '+(r.richtung?dirName(r.ref,r.richtung):'Richtung ?')+' · km '+fmtKm1(r.m)];
   lines.push('Station '+fmtStation(r.m)+' ('+{gruen:'genau',gelb:'brauchbar',rot:'geschätzt'}[quality(r)]+')');
-  if(q.asb) lines.push('ASB'+(isAst(q.asb.a)?' (Ast)':'')+': NK '+q.asb.a.k.slice(0,8)+' → '+q.asb.a.k.slice(8)+', Station '+q.asb.st+' m'+(isAst(q.asb.a)&&astEndsText(q.asb.a)?' · '+astEndsText(q.asb.a):''));
+  if(q.asb) lines.push('ASB '+(isAst(q.asb.a)?'Ast ':'')+q.asb.a.k+', Station '+q.asb.st+' m ('+asbLabel(q.asb.a)+')'+(isAst(q.asb.a)&&astEndsText(q.asb.a)?' · '+astEndsText(q.asb.a):''));
   lines.push('GPS '+q.p.lat.toFixed(5)+', '+q.p.lon.toFixed(5));
   const txt=lines.join('\n');
   (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Kopiert: '+lines[0]),()=>{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('Kopiert.');}catch(_){toast(txt);} ta.remove(); });
