@@ -162,7 +162,7 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 #asb .mono{font-size:12px;color:var(--text-muted)}
 #note{font-size:12.5px;color:var(--danger);margin-top:4px}
 #note:empty{display:none}
-.actions{display:grid;grid-template-columns:1fr 1fr 56px;gap:8px;margin-top:12px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .actions .btn{line-height:1.15;text-align:center}
 /* Buttons: einheitlich gefuellt (Musterplangenerator), Gefahr rot */
 .btn{appearance:none;border:1px solid var(--accent);background:var(--accent);color:#fff;font:600 16px "Titillium Web",sans-serif;min-height:56px;padding:0 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px}
@@ -231,6 +231,22 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 .asbpop .mono{font-size:12px}
 .asbbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .asbbtns .btn{min-height:40px;font-size:13.5px}
+.cv-card{border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface)}
+.cv-card.res{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.cv-h{font:700 11.5px 'Titillium Web',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+.cv-card.res .cv-h{color:var(--accent)}
+.cv-swap{display:flex;align-items:center;gap:10px;margin:2px 0}
+.cv-swap:before,.cv-swap:after{content:"";flex:1;height:1px;background:var(--border)}
+.cv-swap button{width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(217,83,30,.35);cursor:pointer}
+.cv-km{font:700 34px/1.15 'IBM Plex Mono',monospace}
+.cv-refs{display:flex;gap:6px;margin-bottom:10px}
+.cv-refs button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:700 14px 'IBM Plex Mono',monospace;cursor:pointer}
+.cv-refs button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.cv-hits{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.cv-hits button{text-align:left;min-height:40px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:6px 10px;font:500 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.cv-hits button.on{border-color:var(--accent)}
+.cv-out{font-size:14px;color:var(--text)} .cv-out .hint{margin:0;padding:0}
+.cv-acts{display:grid;grid-template-columns:1fr;gap:8px;margin-top:4px}
 .qpin{width:22px;height:22px;border-radius:50%;background:var(--accent-2);border:3px solid #fff;box-shadow:0 0 0 2px var(--accent-2),0 2px 6px rgba(0,0,0,.35)}
 .qkm{font:700 26px/1.1 'IBM Plex Mono',monospace;color:#1b2430;margin:4px 0 4px}.qkm span{font:500 14px 'IBM Plex Sans',sans-serif;color:var(--text-muted)}
 .kmt-anchor{position:relative;width:0;height:0}
@@ -306,7 +322,6 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
     <div class="actions">
       <button class="btn" id="btnCal">km-Tafel jetzt</button>
       <button class="btn" id="btnCopy" title="Standort als Text in die Zwischenablage kopieren">Standort kopieren</button>
-      <button class="btn" id="btnMenu" aria-label="Menü">☰</button>
     </div>
     <div id="status"><span id="stGps">GPS: –</span><span id="stData">OSM: –</span><span id="stCal">Kalibriert: 0</span></div>
   </div>
@@ -325,8 +340,9 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
     <div class="grp">
       <div class="seg" id="segTheme"><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></div>
     </div>
-    <h3>Suchen</h3>
-    <div class="grp"><button class="btn small" id="btnAsbMenu">ASB-Lage suchen (AoA + Station)</button></div>
+    <h3>Umrechnen</h3>
+    <div class="grp"><button class="btn small" id="btnAsbMenu"><span>ASB-Lage</span> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px;margin:0 6px"><path d="M4 8h16M16 4l4 4-4 4"/><path d="M20 16H4M8 12l-4 4 4 4"/></svg> <span>Betriebs-km</span></button>
+      <p class="hint" style="margin:0">AoA + Station in Betr.-km umrechnen – oder umgekehrt. Richtung per Pfeil wechseln.</p></div>
     <h3>Kalibrieren</h3>
     <div class="grp">
       <button class="btn small" id="btnCalMap">km-Punkt in Karte setzen</button>
@@ -1367,6 +1383,186 @@ function openAsbSearch(){
   ['aAoa','aSt'].forEach(id=>document.getElementById(id).addEventListener('input',asbEval));
   if(last.aoa) asbEval();
 }
+
+/* ================== Umrechnen ASB ⇄ Betriebs-km ================== */
+const K_CONV='kmf.umrechnen.v1';
+let CV=null;   // Zustand des Umrechnen-Dialogs
+function waitLoad(){ return new Promise(res=>{ const t=()=>S.loading? setTimeout(t,250) : res(); t(); }); }
+async function ensureLoaded(p){ await waitLoad(); await loadAround(p); await waitLoad(); }
+function clip(txt,label){ (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Kopiert: '+(label||txt.split('\n')[0])),()=>{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('Kopiert.');}catch(_){toast(txt);} ta.remove(); }); }
+// Startpunkte mit bekanntem km für eine Autobahn (eigene Punkte, Werkseinstellung, geladene OSM-Tafeln)
+function kmSeeds(ref){
+  const out=[]; const band=refBand(ref);
+  S.cal.forEach(c=>{ if(c.ref===ref) out.push({lat:c.lat,lon:c.lon,m:c.m}); });
+  werkPts().forEach(w=>{ if(w.ref===ref) out.push({lat:w.lat,lon:w.lon,m:w.m}); });
+  for(const ms of S.milestones.values()){ if(ms.ref? ms.ref===ref : (band&&ms.m>=band[0]&&ms.m<=band[1])) out.push({lat:ms.lat,lon:ms.lon,m:ms.m}); }
+  return out;
+}
+// Grobsuche: OSM-Tafeln mit passendem km-Wert in Baden-Württemberg (klein, nur Knoten)
+async function seedSearch(m){
+  const k=Math.floor(m/1000); const pat='^('+[k-1,k,k+1].filter(x=>x>=0).join('|')+')([.,][0-9]+)?$';
+  const q='[out:json][timeout:20];node["highway"="milestone"]["distance"~"'+pat+'"](47.4,7.4,49.9,10.6);out;';
+  for(const url of OVERPASS){
+    try{
+      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),25000);
+      const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
+      clearTimeout(to); if(!r.ok) continue;
+      const j=await r.json();
+      return (j.elements||[]).map(e=>({lat:e.lat,lon:e.lon,m:parseKm(String(e.tags.distance).replace(/\s*km$/i,'')),ref:normRefs(e.tags)[0]||null})).filter(x=>x.m!=null);
+    }catch(_){}
+  }
+  return [];
+}
+// Betr.-km -> Lage(n) auf der Achse. Ergebnis: [{p, r, asb}]
+async function kmToPoints(ref,m){
+  const hits=[]; const tried=new Set();
+  const addHits=(ch)=>{
+    const an=collectAnchors(ch); if(an.length<1) return;
+    for(let i=0;i<an.length-1;i++){
+      const A=an[i],B=an[i+1],k=slope(A,B); if(k===null) continue;
+      if(m<Math.min(A.m,B.m)-0.5||m>Math.max(A.m,B.m)+0.5) continue;
+      const sx=A.s+(m-A.m)/k; const p=pointAt(ch.pts,ch.cum,sx);
+      if(hits.some(h=>hav(h.p,p)<60)) continue;
+      const r=queryCompute(p); if(!r||r.m==null||Math.abs(r.m-m)>3) continue;
+      hits.push({p,r,asb:asbStation(p,ref)});
+    }
+    // knapp außerhalb des letzten Ankers: höchstens 1,5 km fortschreiben
+    if(!hits.length&&an.length>=2){
+      for(const [A,B] of [[an[0],an[1]],[an[an.length-2],an[an.length-1]]]){
+        const k=slope(A,B); if(k===null) continue; const E=(A===an[0])?A:B; const sx=E.s+(m-E.m)/k;
+        if(Math.abs(sx-E.s)>1500||sx<0||sx>ch.cum[ch.cum.length-1]) continue;
+        const p=pointAt(ch.pts,ch.cum,sx); const r=queryCompute(p); if(r&&r.m!=null&&Math.abs(r.m-m)<5) hits.push({p,r,asb:asbStation(p,ref)});
+      }
+    }
+  };
+  const tryFrom=async (seed,hops)=>{
+    const key=seed.lat.toFixed(3)+','+seed.lon.toFixed(3); if(tried.has(key)) return; tried.add(key);
+    await ensureLoaded(seed);
+    const sn=snap(seed,null); if(!sn||!sn.w.refs.includes(ref)) return;
+    const ch=buildChain(sn.w,15000,ref);
+    const before=hits.length; addHits(ch);
+    if(hits.length>before||hops<=0) return;
+    // weiter in Richtung des gesuchten km
+    const an=collectAnchors(ch); if(an.length<2) return;
+    const first=an[0], last=an[an.length-1];
+    const goEnd=(last.m>first.m)===(m>last.m);
+    const endPt= goEnd? ch.pts[ch.pts.length-1] : ch.pts[0];
+    await tryFrom({lat:endPt.lat,lon:endPt.lon},hops-1);
+  };
+  let seeds=kmSeeds(ref).sort((a,b)=>Math.abs(a.m-m)-Math.abs(b.m-m));
+  if(!seeds.length||Math.abs(seeds[0].m-m)>4000){
+    const extra=(await seedSearch(m)).filter(x=>!x.ref||x.ref===ref).sort((a,b)=>Math.abs(a.m-m)-Math.abs(b.m-m));
+    seeds=extra.concat(seeds);
+  }
+  for(const sd of seeds.slice(0,6)){ await tryFrom(sd,Math.abs(sd.m-m)>6000?3:1); if(hits.length) break; }
+  // weitere Treffer (km-Sprung): restliche nahe Startpunkte mit großem Abstand prüfen
+  for(const sd of seeds.slice(0,10)){ if(hits.some(h=>hav(h.p,sd)<8000)) continue; if(Math.abs(sd.m-m)<2500) await tryFrom(sd,0); }
+  return hits;
+}
+function convHtml(){
+  const swap='<div class="cv-swap"><button type="button" id="cvSwap" aria-label="Richtung wechseln" title="Richtung wechseln"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4v16M4 8l4-4 4 4"/><path d="M16 20V4M12 16l4 4 4-4"/></svg></button></div>';
+  const acts='<div class="cv-acts"><button class="btn small neutral" id="cvCopy" type="button">Kopieren</button></div>';
+  if(CV.dir==='asb2km'){
+    return '<div class="cv-card"><div class="cv-h">Eingabe · ASB-Lage</div><label for="cvAoa">AoA (Abschnitt oder Ast)</label><input id="cvAoa" class="txt" autocomplete="off" placeholder="7220047O7220078O" value="'+esc(CV.aoa||'')+'"><div id="cvAoaInfo" class="hint" style="margin:4px 0 8px"></div><label for="cvSt">Station [m]</label><input id="cvSt" inputmode="decimal" autocomplete="off" placeholder="709" value="'+esc(CV.st||'')+'"></div>'
+      +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · Betriebs-km</div><div id="cvOut" class="cv-out">AoA und Station eingeben.</div></div>'+acts;
+  }
+  const refs=['A 8','A 81','A 831'].map(r=>'<button type="button" data-ref="'+r+'" class="'+(CV.ref===r?'on':'')+'" aria-pressed="'+(CV.ref===r)+'">'+r+'</button>').join('');
+  return '<div class="cv-card"><div class="cv-h">Eingabe · Betriebs-km</div><label>Autobahn</label><div class="cv-refs" role="group" aria-label="Autobahn">'+refs+'</div><label for="cvKm">Betr.-km</label><input id="cvKm" inputmode="decimal" autocomplete="off" placeholder="205,408" value="'+esc(CV.km||'')+'"></div>'
+    +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · ASB-Lage</div><div id="cvOut" class="cv-out">Autobahn wählen und km eingeben.</div></div>'+acts;
+}
+function openConvert(){
+  CV=Object.assign({dir:'asb2km',aoa:'',st:'',ref:S.settings.tafelRef||'A 8',km:'',res:null,seq:0},LS.get(K_CONV,{}),{res:null,seq:0});
+  if(!CV.aoa){ const last=LS.get(K_ASBQ,null); if(last){ CV.aoa=last.aoa; CV.st=last.st; } }
+  renderConvert();
+}
+function saveConv(){ LS.set(K_CONV,{dir:CV.dir,aoa:CV.aoa,st:CV.st,ref:CV.ref,km:CV.km}); }
+function renderConvert(){
+  const title= CV.dir==='asb2km'? 'ASB → Betriebs-km' : 'Betriebs-km → ASB';
+  openDlg(title,convHtml(),'In Karte zeigen',()=>{ if(!CV.res||!CV.res.p){ toast('Noch kein Ergebnis.'); return false; } convShow(); return true; });
+  const $$=id=>document.getElementById(id);
+  $$('cvSwap').onclick=convSwap;
+  $$('cvCopy').onclick=()=>{ if(!CV.res||!CV.res.text){ toast('Noch kein Ergebnis.'); return; } clip(CV.res.text); };
+  if(CV.dir==='asb2km'){
+    ['cvAoa','cvSt'].forEach(id=>$$(id).addEventListener('input',()=>{ CV.aoa=$$('cvAoa').value; CV.st=$$('cvSt').value; saveConv(); convCalcSoon(); }));
+  } else {
+    document.querySelectorAll('.cv-refs button').forEach(b=>b.onclick=()=>{ CV.ref=b.dataset.ref; document.querySelectorAll('.cv-refs button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed',x===b); }); saveConv(); convCalcSoon(); });
+    $$('cvKm').addEventListener('input',()=>{ CV.km=$$('cvKm').value; saveConv(); convCalcSoon(); });
+  }
+  convCalc();
+}
+let cvT=null; function convCalcSoon(){ clearTimeout(cvT); cvT=setTimeout(convCalc,450); }
+function convSwap(){
+  const r=CV.res;
+  if(CV.dir==='asb2km'){
+    CV.dir='km2asb';
+    if(r&&r.r&&r.r.m!=null&&!r.ast){ CV.ref=r.r.ref; CV.km=fmtKm1(r.r.m); }
+  } else {
+    CV.dir='asb2km';
+    if(r&&r.asb){ CV.aoa=r.asb.a.k; CV.st=String(r.asb.st); }
+  }
+  CV.res=null; saveConv(); renderConvert();
+}
+async function convCalc(){
+  const out=document.getElementById('cvOut'); if(!out) return;
+  const seq=++CV.seq; CV.res=null;
+  if(CV.dir==='asb2km'){
+    const info=document.getElementById('cvAoaInfo');
+    const q=parseAsbInput(CV.aoa,CV.st);
+    if(!String(CV.aoa||'').trim()){ info.textContent=''; out.innerHTML='AoA und Station eingeben.'; return; }
+    if(q.err){ info.textContent=''; out.innerHTML='<div class="err">'+q.err+'</div>'; return; }
+    const f=findAsb(q);
+    if(!f){ info.textContent=''; out.innerHTML='<div class="err">'+esc(q.n1+q.c1+' → '+q.n2+q.c2)+' ist nicht im Datenbestand (A 8, A 81, A 831 mit Ästen).</div>'; return; }
+    const a=f.a; info.innerHTML=esc(a.r)+' · '+esc(asbLabel(a,f.rev))+(isAst(a)?' <span class="badge" style="margin:0;padding:1px 7px">Ast</span>':'')+' · '+a.L.toLocaleString('de-DE')+' m';
+    if(!isFinite(q.st)){ out.innerHTML='Station in Metern eingeben.'; return; }
+    if(q.st<0||q.st>a.L+20){ out.innerHTML='<div class="err">Station liegt außerhalb (0 – '+a.L.toLocaleString('de-DE')+' m).</div>'; return; }
+    const stBook=f.rev? a.L-q.st : q.st; const p=asbPoint(a,stBook);
+    const kenn=(f.rev? q.n2+q.c2+q.n1+q.c1 : a.k);
+    if(isAst(a)){
+      const draw=()=>{ if(seq!==CV.seq) return; const o=document.getElementById('cvOut'); if(!o) return;
+        o.innerHTML='<div style="font-size:14px">Äste haben keine eigenen Betriebs-km. Hauptfahrbahn an den Nullpunkten:</div><div style="margin-top:4px">'+astEndsHtml(a,draw)+'</div><div class="mono hint" style="margin-top:6px">'+p.lat.toFixed(5)+', '+p.lon.toFixed(5)+'</div>';
+        CV.res={p,ast:true,asb:{a,st:Math.round(q.st)},text:'ASB Ast '+a.k+', Station '+Math.round(q.st)+' m ('+asbLabel(a)+')'+(astEndsText(a)?'\nHauptfahrbahn: '+astEndsText(a):'')+'\nGPS '+p.lat.toFixed(5)+', '+p.lon.toFixed(5)}; };
+      draw(); return;
+    }
+    out.innerHTML='Berechne Betr.-km …';
+    await ensureLoaded(p); if(seq!==CV.seq) return;
+    const r=queryCompute(p);
+    if(!r||r.m==null||r.type==='none'){ out.innerHTML='<div class="err">An dieser Stelle ist keine Fahrbahn mit km-Punkten erkannt.</div><div class="mono hint">'+p.lat.toFixed(5)+', '+p.lon.toFixed(5)+'</div>'; CV.res={p,text:'ASB '+kenn+', Station '+Math.round(q.st)+' m\nGPS '+p.lat.toFixed(5)+', '+p.lon.toFixed(5)}; return; }
+    const ql=quality(r), qt={gruen:'genau',gelb:'brauchbar',rot:'geschätzt'}[ql];
+    out.innerHTML='<div><b>'+esc(r.ref)+'</b> · '+esc(r.richtung?dirName(r.ref,r.richtung):'Richtung ?')+'</div><div style="display:flex;align-items:baseline;gap:10px"><span class="hint" style="font-size:16px">km</span><span class="cv-km">'+(r.type==='unknown'?'≈ ':'')+fmtKm1(r.m)+'</span></div><span class="badge q-'+ql+'" style="margin:0;padding:2px 8px">'+qt+'</span><div class="mono hint" style="margin-top:6px">'+p.lat.toFixed(5)+', '+p.lon.toFixed(5)+'</div>';
+    CV.res={p,r,asb:{a,st:Math.round(q.st)},text:'ASB '+kenn+', Station '+Math.round(q.st)+' m → '+r.ref+' km '+fmtKm1(r.m)+' ('+qt+')\nGPS '+p.lat.toFixed(5)+', '+p.lon.toFixed(5)};
+    return;
+  }
+  const m=parseKm(CV.km);
+  if(!String(CV.km||'').trim()){ out.innerHTML='Autobahn wählen und km eingeben.'; return; }
+  if(m===null){ out.innerHTML='<div class="err">km-Wert nicht erkannt (z. B. 205,408).</div>'; return; }
+  out.innerHTML='Suche km '+fmtKm1(m)+' auf der '+esc(CV.ref)+' …';
+  const hits=await kmToPoints(CV.ref,m); if(seq!==CV.seq) return;
+  if(!hits.length){ out.innerHTML='<div class="err">km '+fmtKm1(m)+' auf der '+esc(CV.ref)+' nicht gefunden. In der Nähe fehlen km-Punkte – Werkseinstellung oder eigene Punkte ergänzen.</div>'; return; }
+  const show=(h)=>{
+    const ql=quality(h.r), qt={gruen:'genau',gelb:'brauchbar',rot:'geschätzt'}[ql]; const a=h.asb;
+    let html= a? '<div class="mono" style="font-weight:700;font-size:16px">ASB '+esc(a.a.k)+' · St. '+a.st.toLocaleString('de-DE')+'</div><div class="hint">'+esc(asbLabel(a.a))+' · '+a.a.L.toLocaleString('de-DE')+' m</div>' : '<div class="err">Keine ASB-Lage zu diesem Punkt gefunden.</div>';
+    html+='<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="badge q-'+ql+'" style="margin:0;padding:2px 8px">'+qt+'</span><span class="hint">gilt für beide Richtungsfahrbahnen</span></div><div class="mono hint" style="margin-top:6px">'+h.p.lat.toFixed(5)+', '+h.p.lon.toFixed(5)+'</div>';
+    CV.res={p:h.p,r:h.r,asb:a,text:CV.ref+' km '+fmtKm1(m)+' → '+(a?'ASB '+a.a.k+', Station '+a.st+' m ('+asbLabel(a.a)+')':'keine ASB-Lage')+'\nGPS '+h.p.lat.toFixed(5)+', '+h.p.lon.toFixed(5)};
+    return html;
+  };
+  let html=show(hits[0]);
+  if(hits.length>1){
+    html='<div style="background:#fbf0cf;color:#6b4f0c;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:8px">km '+fmtKm1(m)+' kommt '+hits.length+'× vor (km-Sprung). Treffer wählen:</div><div id="cvSel">'+html+'</div><div class="cv-hits">'+hits.map((h,i)=>'<button type="button" data-i="'+i+'" class="'+(i===0?'on':'')+'">'+(h.asb?esc(asbLabel(h.asb.a)):'Treffer '+(i+1))+'</button>').join('')+'</div>';
+  }
+  out.innerHTML=html;
+  out.querySelectorAll('.cv-hits button').forEach(b=>b.onclick=()=>{ out.querySelectorAll('.cv-hits button').forEach(x=>x.classList.toggle('on',x===b)); document.getElementById('cvSel').innerHTML=show(hits[+b.dataset.i]); });
+}
+function convShow(){
+  const r=CV.res; if(!r||!r.p) return;
+  if(CV.dir==='asb2km'&&r.asb){
+    const q=parseAsbInput(CV.aoa,CV.st), f=findAsb(q);
+    if(f){ LS.set(K_ASBQ,{aoa:CV.aoa,st:CV.st}); showAsbResult({q,f,n1:f.rev?f.a.n2:f.a.n1,n2:f.rev?f.a.n1:f.a.n2}); return; }
+  }
+  S.settings.follow=false; saveSettings(); syncButtons();
+  map.setView([r.p.lat,r.p.lon],Math.max(map.getZoom(),16));
+  queryPoint(r.p);
+}
+
 function showAsbResult(r){
   const {q,f,n1,n2}=r, a=f.a;
   const stBook= f.rev? a.L-q.st : q.st;          // Stationierung der Datenbank läuft n1->n2 der Kennung
@@ -1503,7 +1699,7 @@ function bind(){
   $('btnCal').onclick=()=>{ if(!S.pos){ toast(S.settings.mode==='gps'?'Noch keine GPS-Position.':'Erst Position in der Karte antippen.'); return; } kmDialog(avgFix(),{title:'km-Tafel jetzt',src:S.settings.mode==='gps'?'ort':'karte'}); };
   $('btnCopy').onclick=copyText;
   const openMenu=()=>{ renderMenu(); $('menu').classList.add('show'); };
-  $('btnMenu').onclick=openMenu; $('btnMenuTop').onclick=openMenu;
+  $('btnMenuTop').onclick=openMenu;
   $('menuClose').onclick=()=>$('menu').classList.remove('show');
   $('menu').addEventListener('click',e=>{ if(e.target.id==='menu') $('menu').classList.remove('show'); });
   $('dlgCancel').onclick=closeDlg;
@@ -1526,7 +1722,7 @@ function bind(){
     if(S.settings.tafelRef&&map){ if(map.getZoom()<14) toast('Tafeln erscheinen ab Zoomstufe 14 – bitte hineinzoomen.'); const c=map.getCenter(); loadAround({lat:c.lat,lon:c.lng}); }
     drawTafeln();
   });
-  $('btnAsbMenu').onclick=()=>{ $('menu').classList.remove('show'); openAsbSearch(); };
+  $('btnAsbMenu').onclick=()=>{ $('menu').classList.remove('show'); openConvert(); };
   $('btnImportList').onclick=()=>{ const f=$('fileList'); f.value=''; f.click(); };
   $('fileList').addEventListener('change',ev=>{ const f=ev.target.files[0]; if(f) startListImport(f); });
   $('btnExport').onclick=()=>{ if(!S.cal.length){ toast('Keine Punkte zum Exportieren.'); return; } exportCal(); };
@@ -1549,7 +1745,7 @@ function start(){
   if(S.settings.mode==='gps') startGps(); else setGps('GPS: Testmodus');
   render();
 }
-window.KMF={S,WERK,werkPts,tafelnForChain,parseAsbInput,findAsb,openAsbSearch,utm32ToWgs,gkToWgs,parseCsv,evaluate,matchNk,startListImport,placeQueue,asbStation,ASB,compute,interpolate,collectAnchors,parseKm,fmtBetrKm,ingest,setPos,recompute,kmDialog,addCal};
+window.KMF={S,openConvert,kmToPoints,WERK,werkPts,tafelnForChain,parseAsbInput,findAsb,openAsbSearch,utm32ToWgs,gkToWgs,parseCsv,evaluate,matchNk,startListImport,placeQueue,asbStation,ASB,compute,interpolate,collectAnchors,parseKm,fmtBetrKm,ingest,setPos,recompute,kmDialog,addCal};
 start();
 </script>
 <script>
