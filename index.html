@@ -131,16 +131,9 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 .hbtn:hover{border-color:var(--accent);color:var(--accent-strong)}
 #mapWrap{position:relative;flex:1 1 auto;min-height:160px}
 #map{position:absolute;inset:0;background:var(--surface-3)}
-.mapBtns{position:absolute;right:10px;top:10px;z-index:500;display:flex;flex-direction:column;gap:8px}
+.mapBtns{position:absolute;right:10px;bottom:30px;z-index:500;display:flex;flex-direction:column;gap:8px}
 .mbtn{width:48px;height:48px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:20px;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .mbtn:hover{border-color:var(--accent)}
-.mbGroup{display:flex;flex-direction:column;gap:8px;overflow:hidden;max-height:240px;transition:max-height .22s ease,opacity .18s ease;padding:0 4px 6px;margin:0 -4px -6px}
-.mapBtns.closed .mbGroup{max-height:0;opacity:0;pointer-events:none}
-.mtoggle{position:relative}
-.mtoggle .chev{transition:transform .2s ease;transform:rotate(180deg)}
-.mapBtns.closed .mtoggle .chev{transform:rotate(0deg)}
-.mtoggle .fdot{display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
-.mapBtns.closed.follow .mtoggle .fdot{display:block}
 .mbtn.on{background:var(--accent-2);color:#fff;border-color:var(--accent-2)}
 #banner{position:absolute;left:10px;right:68px;top:10px;z-index:500;background:var(--surface);color:var(--text);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius);padding:10px 12px;display:none;align-items:center;gap:10px;box-shadow:var(--shadow)}
 #banner.show{display:flex;flex-wrap:wrap}
@@ -287,14 +280,8 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
   <div id="mapWrap">
     <div id="map"></div>
     <div id="banner"><span id="bannerTxt"></span><button id="bannerSkip" style="display:none">Überspringen</button><button id="bannerCancel">Abbrechen</button></div>
-    <div class="mapBtns closed" id="mapBtns">
-      <button class="mbtn mtoggle" id="btnMapTools" title="Werkzeuge ein-/ausklappen" aria-label="Werkzeuge ein-/ausklappen" aria-expanded="false" aria-controls="mbGroup"><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg><span class="fdot" aria-hidden="true"></span></button>
-      <div class="mbGroup" id="mbGroup">
-      <button class="mbtn" id="btnAsb" title="ASB-Lage suchen" aria-label="ASB-Lage suchen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
-      <button class="mbtn" id="btnFollow" title="Karte folgt Position" aria-label="Karte folgt Position">◎</button>
-      <button class="mbtn" id="btnSwap" title="Andere Richtungsfahrbahn" aria-label="Andere Richtungsfahrbahn">⇅</button>
-      <button class="mbtn" id="btnLoad" title="OSM-Daten für Ausschnitt laden" aria-label="Daten laden">⟳</button>
-      </div>
+    <div class="mapBtns" id="mapBtns">
+      <button class="mbtn" id="btnFollow" title="Karte folgt GPS-Position" aria-label="Karte folgt GPS-Position">◎</button>
     </div>
   </div>
   <div id="panel">
@@ -340,6 +327,11 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
     </div>
     <h3>Suchen</h3>
     <div class="grp"><button class="btn small" id="btnAsbMenu">ASB-Lage suchen (AoA + Station)</button></div>
+    <h3>Karte</h3>
+    <div class="grp">
+      <button class="btn small" id="btnLoad">Kartendaten neu laden</button>
+      <button class="btn small" id="btnSwap">Andere Richtungsfahrbahn wählen</button>
+    </div>
     <h3>Kalibrieren</h3>
     <div class="grp">
       <button class="btn small" id="btnCalMap">km-Punkt in Karte setzen</button>
@@ -463,12 +455,7 @@ const S = {
   dirLock: null, chainCache:null, result:null, pick:null, watchId:null
 };
 function saveSettings(){ LS.set(K_SET,S.settings); }
-function syncMapTools(){
-  const box=document.getElementById('mapBtns'); if(!box) return;
-  const open=!!S.settings.toolsOpen;
-  box.classList.toggle('closed',!open); box.classList.toggle('follow',!!S.settings.follow);
-  document.getElementById('btnMapTools').setAttribute('aria-expanded',open?'true':'false');
-}
+function syncMapTools(){}
 function saveCal(){ if(!LS.set(K_CAL,S.cal)) toast('Speichern im Browser fehlgeschlagen – bitte exportieren.'); }
 
 /* ================== OSM-Daten ================== */
@@ -1488,11 +1475,10 @@ function bind(){
   $('dlgCancel').onclick=closeDlg;
   $('dlgOk').onclick=()=>{ if(dlgOk&&dlgOk()===false) return; closeDlg(); };
   $('dlg').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('dlgOk').click(); } if(e.key==='Escape') closeDlg(); });
-  $('btnMapTools').onclick=()=>{ S.settings.toolsOpen=!S.settings.toolsOpen; saveSettings(); syncMapTools(); };
   document.querySelectorAll('#segTheme button').forEach(b=>b.onclick=()=>{ S.settings.theme=b.dataset.t; saveSettings(); syncButtons(); });
   $('btnFollow').onclick=()=>{ S.settings.follow=!S.settings.follow; saveSettings(); syncButtons(); if(S.settings.follow&&S.pos) map.panTo([S.pos.lat,S.pos.lon]); };
-  $('btnSwap').onclick=()=>{ const r=S.result; if(!r){ toast('Keine Achse erkannt.'); return; } S.heading=null; S.dirLock=(r.bearing+180)%360; S.chainCache=null; recompute(); toast('Richtungsfahrbahn gewechselt.'); };
-  $('btnLoad').onclick=()=>{ const c=map.getCenter(); if(map.getZoom()<11){ toast('Bitte näher heranzoomen (Ausschnitt zu groß).'); return; } loadAround({lat:c.lat,lon:c.lng},true); };
+  $('btnSwap').onclick=()=>{ $('menu').classList.remove('show'); const r=S.result; if(!r){ toast('Keine Achse erkannt.'); return; } S.heading=null; S.dirLock=(r.bearing+180)%360; S.chainCache=null; recompute(); toast('Richtungsfahrbahn gewechselt.'); };
+  $('btnLoad').onclick=()=>{ $('menu').classList.remove('show'); const c=map.getCenter(); if(map.getZoom()<11){ toast('Bitte näher heranzoomen (Ausschnitt zu groß).'); return; } loadAround({lat:c.lat,lon:c.lng},true); };
   $('dirLbl').onclick=()=>{
     const r=S.result; if(!r||!r.richtung){ toast('Fahrtrichtung noch unbekannt.'); return; }
     const key=refKey(r.ref)+'|'+r.richtung, cur=S.settings.dirNames[key]||(FERNZIEL[refKey(r.ref)]||{})[r.richtung]||'';
@@ -1508,7 +1494,6 @@ function bind(){
     if(S.settings.tafelRef&&map){ if(map.getZoom()<14) toast('Tafeln erscheinen ab Zoomstufe 14 – bitte hineinzoomen.'); const c=map.getCenter(); loadAround({lat:c.lat,lon:c.lng}); }
     drawTafeln();
   });
-  $('btnAsb').onclick=openAsbSearch;
   $('btnAsbMenu').onclick=()=>{ $('menu').classList.remove('show'); openAsbSearch(); };
   $('btnImportList').onclick=()=>{ const f=$('fileList'); f.value=''; f.click(); };
   $('fileList').addEventListener('change',ev=>{ const f=ev.target.files[0]; if(f) startListImport(f); });
