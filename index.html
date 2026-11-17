@@ -310,14 +310,6 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
     </div>
   </div>
   <div id="panel">
-    <section id="tafelBox" aria-label="Betr.-km-Tafeln">
-      <div class="tb-head"><span class="tb-lbl">Betr.-km-Tafeln</span><span class="tb-hint">immer nur eine Autobahn</span></div>
-      <div class="tb-sw" id="tafelSw">
-        <button type="button" role="switch" aria-checked="false" data-ref="A 8"><span class="trk"><span class="knb"></span></span><span>A 8</span></button>
-        <button type="button" role="switch" aria-checked="false" data-ref="A 81"><span class="trk"><span class="knb"></span></span><span>A 81</span></button>
-        <button type="button" role="switch" aria-checked="false" data-ref="A 831"><span class="trk"><span class="knb"></span></span><span>A 831</span></button>
-      </div>
-    </section>
     <div class="row1">
       <span id="refLbl">–</span>
       <button class="chip" id="dirLbl" title="Fahrtrichtung benennen">Richtung –</button>
@@ -329,7 +321,7 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
     <div id="asb"></div>
     <div id="note"></div>
     <div class="actions">
-      <button class="btn" id="btnCal">km-Tafel jetzt</button>
+      <button class="btn" id="btnCal">km-Punkt in Karte setzen</button>
       <button class="btn" id="btnCopy" title="Standort als Text in die Zwischenablage kopieren">Standort kopieren</button>
     </div>
     <div id="status"><span id="stGps">GPS: –</span><span id="stData">OSM: –</span><span id="stCal">Kalibriert: 0</span></div>
@@ -349,10 +341,6 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
     <h3>Umrechnen</h3>
     <div class="grp"><button class="btn small" id="btnAsbMenu"><span>ASB-Lage</span> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px;margin:0 6px"><path d="M4 8h16M16 4l4 4-4 4"/><path d="M20 16H4M8 12l-4 4 4 4"/></svg> <span>Betriebs-km</span></button>
       <p class="hint" style="margin:0">AoA + Station in Betr.-km umrechnen – oder umgekehrt. Richtung per Pfeil wechseln.</p></div>
-    <h3>Kalibrieren</h3>
-    <div class="grp">
-      <button class="btn small" id="btnCalMap">km-Punkt in Karte setzen</button>
-    </div>
     <h3>Listen importieren (CSV / Excel)</h3>
     <div class="grp">
       <button class="btn small" id="btnImportList">Liste importieren</button>
@@ -699,7 +687,7 @@ function quality(r){
 /* ================== Berechnung ================== */
 function compute(p){
   const sn=snap(p,S.heading); if(!sn) return null;
-  const ref= sn.w.refs.includes(S.settings.tafelRef) ? S.settings.tafelRef : sn.w.refs[0];
+  const ref= sn.w.refs.includes(S.lastRef) ? S.lastRef : sn.w.refs[0];
   let ch=S.chainCache;
   if(!ch||!ch.ids.has(sn.w.id)||ch.refs[0]!==ref) ch=S.chainCache=buildChain(sn.w,7000,ref);
   // Laufmeter s0 auf der Kette
@@ -711,6 +699,7 @@ function compute(p){
   }
   const an=collectAnchors(ch);
   const r=interpolate(an,s0);
+  S.lastRef=ref;
   r.s0=s0; r.chain=ch; r.anchors=an; r.snapD=sn.d; r.bearing=sn.b; r.ref=ref; r.alsoRefs=sn.w.refs.filter(x=>x!==ref);
   r.snapPt=pointAt(ch.pts,ch.cum,s0);
   if(r.k) r.richtung = r.k>0?'steigend':'fallend';
@@ -1109,7 +1098,7 @@ document.addEventListener('click',e=>{
 function renderMenu(){
   document.getElementById('calCount').textContent=S.cal.length;
   const l=document.getElementById('calList');
-  if(!S.cal.length) l.innerHTML='<div class="empty">Noch keine eigenen Punkte. „km-Tafel jetzt“ vor Ort oder Punkt in der Karte setzen.</div>';
+  if(!S.cal.length) l.innerHTML='<div class="empty">Noch keine eigenen Punkte. „km-Punkt in Karte setzen“ vor Ort oder Karte antippen → „km-Tafel hier“.</div>';
   else l.innerHTML=S.cal.slice().sort((a,b)=>(a.ref||'').localeCompare(b.ref||'')||a.m-b.m).slice(0,150).map(c=>'<div class="li"><span class="k">'+fmtBetrKm(c.m)+'</span><span class="t">'+esc((c.ref||'–')+' · '+(c.label||'')+' · '+new Date(c.t).toLocaleDateString('de-DE'))+'</span><button data-id="'+c.id+'" aria-label="Löschen">🗑</button></div>').join('')+(S.cal.length>150?'<div class="empty">… und '+(S.cal.length-150)+' weitere</div>':'');
   l.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>askDelete(S.cal.find(c=>c.id===b.dataset.id)));
   // Quellen
@@ -1534,7 +1523,7 @@ function convHtml(side){
     +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · ASB-Lage</div><div id="cvOut" class="cv-out">Betr.-km eingeben.</div></div>'+acts;
 }
 function initConv(){
-  CV=Object.assign({dir:'asb2km',aoa:'',st:'',ref:S.settings.tafelRef||'A 8',km:'',res:null,seq:0},LS.get(K_CONV,{}),{res:null,seq:0});
+  CV=Object.assign({dir:'asb2km',aoa:'',st:'',ref:'A 8',km:'',res:null,seq:0},LS.get(K_CONV,{}),{res:null,seq:0});
   if(!CV.aoa){ const last=LS.get(K_ASBQ,null); if(last){ CV.aoa=last.aoa; CV.st=last.st; } }
 }
 function openConvert(){
@@ -1740,10 +1729,30 @@ function oppositeChain(r){
   if(angDiff(sn.b,r.bearing)<120) return null;
   return buildChain(sn.w,7000);
 }
+/* Tafeln automatisch: Autobahn, an der die Position liegt (≤ 90 m, wie beim km-Abgleich).
+   Ohne Position – oder wenn die Karte frei verschoben wurde – die Autobahn, die der Kartenmitte am nächsten liegt. */
+function curTafelRef(){
+  if(S.pos&&S.settings.follow) return S.result&&S.result.ref ? S.result.ref : null;   // unterwegs: nur ≤ 90 m
+  if(S.pos&&S.result&&S.result.ref&&map&&map.getBounds().contains([S.pos.lat,S.pos.lon])) return S.result.ref;
+  if(!map||map.getZoom()<14) return null;
+  const c=map.getCenter(), cp={lat:c.lat,lon:c.lng}, bb=map.getBounds();
+  const lim=hav(cp,{lat:bb.getNorth(),lon:c.lng});   // halbe Kartenhöhe
+  const best={}; 
+  for(const w of S.ways.values()){
+    if(!w.refs.length||!w.geom.some(q=>bb.contains([q.lat,q.lon]))) continue;
+    const pr=projectOn(w.geom,cp); if(!pr||pr.d>lim) continue;
+    w.refs.forEach(r=>{ if(best[r]==null||pr.d<best[r]) best[r]=pr.d; });
+  }
+  const refs=Object.keys(best); if(!refs.length) return null;
+  refs.sort((a,b)=>best[a]-best[b]);
+  // bei fast gleichem Abstand (gemeinsame Strecke) bei der bisherigen bleiben
+  if(S.tafelAuto&&best[S.tafelAuto]!=null&&best[S.tafelAuto]<=best[refs[0]]+30) return S.tafelAuto;
+  return refs[0];
+}
 function drawTafeln(){
   if(!map) return;
   if(!layTafel){ layTafel=L.layerGroup(); }
-  const ref=S.settings.tafelRef;
+  const ref=S.tafelAuto=curTafelRef();
   if(!ref||map.getZoom()<14){ if(map.hasLayer(layTafel)) map.removeLayer(layTafel); layTafel.clearLayers(); tafelKey=''; S.tafelCount=null; tafelStatus(); return; }
   if(!map.hasLayer(layTafel)) layTafel.addTo(map);
   const bb=map.getBounds().pad(0.15);
@@ -1771,7 +1780,7 @@ function drawTafeln(){
 }
 function tafelStatus(){
   const el=document.getElementById('tafelStatus'); if(!el) return;
-  const ref=S.settings.tafelRef;
+  const ref=S.tafelAuto;
   if(!ref) el.textContent='Keine Tafeln eingeblendet';
   else if(map&&map.getZoom()<14) el.textContent=ref+': zum Anzeigen näher heranzoomen (ab Zoomstufe 14)';
   else if(S.loading) el.textContent=ref+': Daten werden geladen …';
@@ -1780,19 +1789,18 @@ function tafelStatus(){
   else el.textContent='Tafeln alle 500 m auf der '+ref+' · '+S.tafelCount+' im Ausschnitt';
 }
 function syncTafelSw(){
-  document.querySelectorAll('#tafelSw button').forEach(b=>{ const on=b.dataset.ref===S.settings.tafelRef; b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false'); });
   tafelStatus();
 }
 let tafelMoveT=null;
 function onMapMoved(){
   clearTimeout(tafelMoveT);
-  tafelMoveT=setTimeout(()=>{ const r=S.settings.tafelRef; if(r&&map.getZoom()>=14){ const c=map.getCenter(); loadAround({lat:c.lat,lon:c.lng}); } drawTafeln(); },250);
+  tafelMoveT=setTimeout(()=>{ if(map.getZoom()>=14){ const c=map.getCenter(); loadAround({lat:c.lat,lon:c.lng}); } drawTafeln(); },250);
 }
 
 /* ================== Events ================== */
 function bind(){
   const $=id=>document.getElementById(id);
-  $('btnCal').onclick=()=>{ if(!S.pos){ toast(S.settings.mode==='gps'?'Noch keine GPS-Position.':'Erst Position in der Karte antippen.'); return; } kmDialog(avgFix(),{title:'km-Tafel jetzt',src:S.settings.mode==='gps'?'ort':'karte'}); };
+  $('btnCal').onclick=()=>{ if(!S.pos){ toast(S.settings.mode==='gps'?'Noch keine GPS-Position.':'Erst Position in der Karte antippen.'); return; } kmDialog(avgFix(),{title:'km-Punkt in Karte setzen',src:S.settings.mode==='gps'?'ort':'karte'}); };
   $('btnCopy').onclick=copyText;
   const openMenu=()=>{ renderMenu(); $('menu').classList.add('show'); };
   $('btnMenuTop').onclick=openMenu;
@@ -1808,14 +1816,8 @@ function bind(){
     openDlg('Fahrtrichtung benennen','<label for="dDir">'+esc(r.ref)+' · km '+r.richtung+' · Fernziel</label><input id="dDir" class="txt" value="'+esc(cur)+'" placeholder="z. B. Karlsruhe">','Speichern',()=>{ const v=$('dDir').value.trim(); if(v) S.settings.dirNames[key]=v; else delete S.settings.dirNames[key]; saveSettings(); render(); return true; });
   };
   document.querySelectorAll('#segMode button').forEach(b=>b.onclick=()=>{ setMode(b.dataset.m); $('menu').classList.remove('show'); });
-  $('btnCalMap').onclick=()=>{ $('menu').classList.remove('show'); setPick('km'); };
   $('bannerCancel').onclick=()=>{ if(S.pick==='queue') endQueue(false); else setPick(null); };
   $('bannerSkip').onclick=skipQueue;
-  document.querySelectorAll('#tafelSw button').forEach(b=>b.onclick=()=>{
-    const ref=b.dataset.ref; S.settings.tafelRef = S.settings.tafelRef===ref ? null : ref; saveSettings(); syncTafelSw(); tafelKey=''; S.chainCache=null; recompute();
-    if(S.settings.tafelRef&&map){ if(map.getZoom()<14) toast('Tafeln erscheinen ab Zoomstufe 14 – bitte hineinzoomen.'); const c=map.getCenter(); loadAround({lat:c.lat,lon:c.lng}); }
-    drawTafeln();
-  });
   $('btnAsbMenu').onclick=()=>{ $('menu').classList.remove('show'); openConvert(); };
   $('btnImportList').onclick=()=>{ const f=$('fileList'); f.value=''; f.click(); };
   $('fileList').addEventListener('change',ev=>{ const f=ev.target.files[0]; if(f) startListImport(f); });
