@@ -827,38 +827,58 @@ function drawData(){
     mk.addTo(layCal);
   }
 }
-/* GPS-Punkt fließend bewegen: zwischen zwei Fixes gleitet der Punkt (und bei „Karte folgt“ die Karte) in der Zeit,
-   die bis zum nächsten Fix zu erwarten ist. Große Sprünge (> 300 m), Testmodus und „weniger Bewegung“ setzen direkt. */
-const PANI={cur:null,from:null,to:null,t0:0,dur:0,raf:0,lastFix:0,gap:1000};
+/* GPS-Punkt fließend bewegen (Vorausrechnung): Zwischen zwei Fixes läuft der Punkt mit Geschwindigkeit und Fahrtrichtung
+   weiter. Kommt ein neuer Fix, wird die Abweichung in ~0,8 s weich ausgeglichen – kein Springen, kaum Rückstand.
+   Ohne neuen Fix (Tunnel) hält der Punkt nach höchstens 3 s an. Große Sprünge (> 300 m), Testmodus und
+   „weniger Bewegung“ setzen direkt. */
+const PANI={cur:null,base:null,v:[0,0],err:[0,0],t0:0,raf:0,lastFix:0,lastLL:null,gap:1000,to:null};
 const reduceMotion=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const M_LAT=111320;
 function placePos(ll,follow){
   PANI.cur=ll; posMk.setLatLng(ll); accC.setLatLng(ll);
   if(follow&&S.settings.follow&&S.zoomedOnce&&!S.pick) map.setView(ll,map.getZoom(),{animate:false});
 }
 function animPos(ll){
-  const now=performance.now();
+  const now=performance.now(), dtFix=(now-PANI.lastFix)/1000;
   if(PANI.lastFix) PANI.gap=Math.min(3000,Math.max(300,0.6*PANI.gap+0.4*(now-PANI.lastFix)));
-  PANI.lastFix=now;
+  const cosL=Math.cos(ll[0]*Math.PI/180);
+  // Geschwindigkeit [m/s nord, ost]: bevorzugt aus dem GPS (Doppler), sonst aus den letzten zwei Fixes
+  let vn=0,ve=0; const sp=S.gpsSpeed, hd=S.gpsHeading;
+  if(sp!=null&&sp>1.5&&hd!=null&&!isNaN(hd)){ vn=sp*Math.cos(hd*Math.PI/180); ve=sp*Math.sin(hd*Math.PI/180); }
+  else if(PANI.lastLL&&dtFix>0.25&&dtFix<4){
+    vn=(ll[0]-PANI.lastLL[0])*M_LAT/dtFix; ve=(ll[1]-PANI.lastLL[1])*M_LAT*cosL/dtFix;
+    const v=Math.hypot(vn,ve); if(v<1.5||v>70){ vn=0; ve=0; }
+  }
+  // Richtung weich übernehmen, damit einzelne Ausreißer nicht zucken
+  PANI.v=[0.7*vn+0.3*(PANI.v[0]||vn),0.7*ve+0.3*(PANI.v[1]||ve)];
+  PANI.lastFix=now; PANI.lastLL=ll; PANI.to=ll;
   const far=!PANI.cur||L.latLng(PANI.cur).distanceTo(ll)>300;
   if(far||S.settings.mode!=='gps'||document.hidden||reduceMotion()){
     if(PANI.raf){ cancelAnimationFrame(PANI.raf); PANI.raf=0; }
-    PANI.to=ll; placePos(ll,false); return false;
+    PANI.v=[0,0]; placePos(ll,false); return false;
   }
-  PANI.from=PANI.cur; PANI.to=ll; PANI.t0=now; PANI.dur=PANI.gap*0.95;
+  PANI.err=[PANI.cur[0]-ll[0],PANI.cur[1]-ll[1]]; PANI.base=ll; PANI.t0=now; PANI.cosL=cosL;
   if(!PANI.raf) PANI.raf=requestAnimationFrame(stepPos);
   return true;
 }
 function stepPos(t){
-  const k=Math.min(1,Math.max(0,(t-PANI.t0)/PANI.dur));
-  const a=PANI.from,b=PANI.to;
-  placePos([a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k],true);
-  PANI.raf= k<1? requestAnimationFrame(stepPos) : 0;
+  const el=Math.max(0,(t-PANI.t0)/1000);
+  const cap=Math.min(3,Math.max(1.2,1.5*PANI.gap/1000));            // so weit wird höchstens vorausgerechnet
+  // ohne neuen Fix: kurz halten, dann zurück zum letzten Fix gleiten (Stillstand ohne GPS-Meldung)
+  const back=Math.min(1,Math.max(0,el-cap-2)), bk=back*back*(3-2*back);
+  const dt=Math.min(el,cap)*(1-bk);
+  const kc=Math.min(1,el/Math.min(0.8,0.8*PANI.gap/1000)), corr=1-kc*kc*(3-2*kc);   // Abweichung weich abbauen
+  const b=PANI.base,v=PANI.v,e=PANI.err;
+  placePos([b[0]+v[0]*dt/M_LAT+e[0]*corr, b[1]+v[1]*dt/(M_LAT*PANI.cosL)+e[1]*corr],true);
+  PANI.raf= (el<cap+3||corr>0) ? requestAnimationFrame(stepPos) : 0;
 }
 function drawPos(){
   if(!S.pos) return;
   const ll=[S.pos.lat,S.pos.lon];
   if(!posMk){ posMk=L.circleMarker(ll,{radius:9,color:'#FFFFFF',weight:3,fillColor:'#0b3d91',fillOpacity:1}).addTo(map); accC=L.circle(ll,{radius:S.pos.acc||10,color:'#0b3d91',weight:1,fillOpacity:.08}).addTo(map); }
-  const gliding= (PANI.to&&PANI.to[0]===ll[0]&&PANI.to[1]===ll[1]) ? !!PANI.raf : animPos(ll);
+  const newFix= S.settings.mode==='gps' ? PANI.seq!==S.fixSeq : !(PANI.to&&PANI.to[0]===ll[0]&&PANI.to[1]===ll[1]);
+  PANI.seq=S.fixSeq;
+  const gliding= newFix ? animPos(ll) : S.settings.mode==='gps';
   accC.setRadius(S.pos.acc||10);
   const r=S.result;
   if(r&&r.chain){
@@ -873,7 +893,7 @@ function drawPos(){
 /* ================== Position ================== */
 function setPos(p,src){
   S.pos=p;
-  if(src==='gps'){ S.fixes.push(Object.assign({t:Date.now()},p)); S.fixes=S.fixes.filter(f=>Date.now()-f.t<15000); }
+  if(src==='gps'){ S.fixSeq=(S.fixSeq||0)+1; S.fixes.push(Object.assign({t:Date.now()},p)); S.fixes=S.fixes.filter(f=>Date.now()-f.t<15000); }
   loadAround(p);
   recompute();
 }
@@ -883,6 +903,7 @@ function startGps(){
   setGps('GPS: sucht …');
   S.watchId=navigator.geolocation.watchPosition(g=>{
     const c=g.coords;
+    S.gpsSpeed=c.speed; S.gpsHeading=c.heading;
     S.speed=c.speed; S.heading=(c.speed!=null&&c.speed>4&&c.heading!=null&&!isNaN(c.heading))?c.heading:null;
     if(S.heading!=null) S.dirLock=null;
     setGps('GPS: ±'+Math.round(c.accuracy)+' m'+(c.speed>1?' · '+Math.round(c.speed*3.6)+' km/h':''));
