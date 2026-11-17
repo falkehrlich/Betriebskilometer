@@ -780,8 +780,15 @@ function initMap(){
   // Luftbild mit Namen: nur Orts- und Gebietsnamen (ohne Straßennamen-Ebene, damit das Bild ruhig bleibt)
   const satNamen=L.layerGroup([satBild(),esri('Reference/World_Boundaries_and_Places','Orte © Esri')]);
   const satPur=satBild();
-  satNamen.addTo(map);   // Grundeinstellung: immer Luftbild mit Namen
-  L.control.layers({'Luftbild mit Namen':satNamen,'Luftbild ohne Namen':satPur,'Karte (basemap.de)':farbe,'Karte grau':grau},null,{position:'bottomleft'}).addTo(map);
+  // Grundeinstellung wie im Mängelmelder: OpenStreetMap-Standardkarte. Als lokale Datei (file://) sperrt der OSM-Server – dann basemap.de.
+  const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,maxNativeZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende'});
+  const BASES={'Karte (OpenStreetMap)':osm,'Luftbild mit Namen':satNamen,'Luftbild ohne Namen':satPur,'Karte (basemap.de)':farbe,'Karte grau':grau};
+  const online=/^https?:/.test(location.protocol);
+  let base=S.settings.base; if(!BASES[base]) base= online? 'Karte (OpenStreetMap)' : 'Karte (basemap.de)';
+  if(!online && base==='Karte (OpenStreetMap)') base='Karte (basemap.de)';
+  BASES[base].addTo(map); document.documentElement.dataset.base= BASES[base]===osm||BASES[base]===farbe||BASES[base]===grau ? 'karte' : 'luftbild';
+  L.control.layers(BASES,null,{position:'bottomleft'}).addTo(map);
+  map.on('baselayerchange',e=>{ S.settings.base=e.name; saveSettings(); document.documentElement.dataset.base= /^Karte/.test(e.name)?'karte':'luftbild'; });
   L.control.zoom({position:'topleft'}).addTo(map);
   setTimeout(loadWerkOnline,300);
   layData=L.layerGroup().addTo(map); layCal=L.layerGroup().addTo(map);
