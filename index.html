@@ -203,15 +203,15 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 .dlg{background:var(--surface);color:var(--text);width:calc(100% - 32px);max-width:420px;border-radius:var(--radius);overflow:hidden;margin:auto;align-self:center;box-shadow:var(--shadow);border:1px solid var(--border)}
 .dlg .dh{padding:14px 16px 10px;font:700 17px "Titillium Web",sans-serif;border-bottom:2px solid var(--accent)}
 .dlg .db{padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
-.dlg label{font-size:12.5px;font-weight:600}
-.dlg input,.dlg select{width:100%;min-height:52px;border:1px solid var(--border-strong);border-radius:8px;padding:0 12px;font:600 22px "IBM Plex Mono",monospace;background:var(--surface-2);color:var(--text)}
-.dlg input:focus,.dlg select:focus{outline:2px solid var(--accent-tint);border-color:var(--accent)}
+.dlg label,#cvSide label{font-size:12.5px;font-weight:600}
+.dlg input,.dlg select,#cvSide input{width:100%;min-height:52px;border:1px solid var(--border-strong);border-radius:8px;padding:0 12px;font:600 22px "IBM Plex Mono",monospace;background:var(--surface-2);color:var(--text)}
+.dlg input:focus,.dlg select:focus,#cvSide input:focus{outline:2px solid var(--accent-tint);border-color:var(--accent)}
 .dlg select{font:14px "IBM Plex Sans",sans-serif}
-.dlg input.txt{font:16px "IBM Plex Sans",sans-serif}
+.dlg input.txt,#cvSide input.txt{font:16px "IBM Plex Sans",sans-serif}
 .dlg .df{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 16px}
-.dlg .btn.neutral{background:var(--accent-2);border-color:var(--accent-2)}
+.dlg .btn.neutral,#cvSide .btn.neutral{background:var(--accent-2);border-color:var(--accent-2)}
 .dlg .msg{font-size:13px;color:var(--text-muted)}
-.dlg .err{color:var(--danger);font-size:12.5px;min-height:16px}
+.dlg .err,#cvSide .err{color:var(--danger);font-size:12.5px;min-height:16px}
 .dlg.wide{max-width:560px;max-height:92vh;overflow:auto}
 .imap{display:grid;grid-template-columns:minmax(0,38%) minmax(0,1fr);gap:6px 10px;align-items:center}
 .imap select{width:100%;min-width:0}
@@ -247,6 +247,18 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 .cv-hits button.on{border-color:var(--accent)}
 .cv-out{font-size:14px;color:var(--text)} .cv-out .hint{margin:0;padding:0}
 .cv-acts{display:grid;grid-template-columns:1fr;gap:8px;margin-top:4px}
+#cvSide{display:none}
+@media (min-width:900px){
+  #cvSide{display:flex;flex-direction:column;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+  #cvSide .cvs-head{display:flex;align-items:center;gap:8px}
+  #cvSide .cv-card{padding:10px 12px}
+  #cvSide .cv-swap button{width:40px;height:40px}
+  #cvSide .cv-km{font-size:28px}
+  #cvSide .cv-acts{grid-template-columns:1fr 1fr}
+  #cvSide input{min-height:42px;font-size:18px}
+  #cvSide input.txt{font-size:15px}
+  #cvSide label{display:block;margin-bottom:4px}
+}
 .qpin{width:22px;height:22px;border-radius:50%;background:var(--accent-2);border:3px solid #fff;box-shadow:0 0 0 2px var(--accent-2),0 2px 6px rgba(0,0,0,.35)}
 .qkm{font:700 26px/1.1 'IBM Plex Mono',monospace;color:#1b2430;margin:4px 0 4px}.qkm span{font:500 14px 'IBM Plex Sans',sans-serif;color:var(--text-muted)}
 .kmt-anchor{position:relative;width:0;height:0}
@@ -324,6 +336,7 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
       <button class="btn" id="btnCopy" title="Standort als Text in die Zwischenablage kopieren">Standort kopieren</button>
     </div>
     <div id="status"><span id="stGps">GPS: –</span><span id="stData">OSM: –</span><span id="stCal">Kalibriert: 0</span></div>
+    <section id="cvSide" aria-label="Umrechnen ASB-Lage und Betriebs-km"></section>
   </div>
 </div>
 
@@ -814,11 +827,39 @@ function drawData(){
     mk.addTo(layCal);
   }
 }
+/* GPS-Punkt fließend bewegen: zwischen zwei Fixes gleitet der Punkt (und bei „Karte folgt“ die Karte) in der Zeit,
+   die bis zum nächsten Fix zu erwarten ist. Große Sprünge (> 300 m), Testmodus und „weniger Bewegung“ setzen direkt. */
+const PANI={cur:null,from:null,to:null,t0:0,dur:0,raf:0,lastFix:0,gap:1000};
+const reduceMotion=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function placePos(ll,follow){
+  PANI.cur=ll; posMk.setLatLng(ll); accC.setLatLng(ll);
+  if(follow&&S.settings.follow&&S.zoomedOnce&&!S.pick) map.setView(ll,map.getZoom(),{animate:false});
+}
+function animPos(ll){
+  const now=performance.now();
+  if(PANI.lastFix) PANI.gap=Math.min(3000,Math.max(300,0.6*PANI.gap+0.4*(now-PANI.lastFix)));
+  PANI.lastFix=now;
+  const far=!PANI.cur||L.latLng(PANI.cur).distanceTo(ll)>300;
+  if(far||S.settings.mode!=='gps'||document.hidden||reduceMotion()){
+    if(PANI.raf){ cancelAnimationFrame(PANI.raf); PANI.raf=0; }
+    PANI.to=ll; placePos(ll,false); return false;
+  }
+  PANI.from=PANI.cur; PANI.to=ll; PANI.t0=now; PANI.dur=PANI.gap*0.95;
+  if(!PANI.raf) PANI.raf=requestAnimationFrame(stepPos);
+  return true;
+}
+function stepPos(t){
+  const k=Math.min(1,Math.max(0,(t-PANI.t0)/PANI.dur));
+  const a=PANI.from,b=PANI.to;
+  placePos([a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k],true);
+  PANI.raf= k<1? requestAnimationFrame(stepPos) : 0;
+}
 function drawPos(){
   if(!S.pos) return;
   const ll=[S.pos.lat,S.pos.lon];
   if(!posMk){ posMk=L.circleMarker(ll,{radius:9,color:'#FFFFFF',weight:3,fillColor:'#0b3d91',fillOpacity:1}).addTo(map); accC=L.circle(ll,{radius:S.pos.acc||10,color:'#0b3d91',weight:1,fillOpacity:.08}).addTo(map); }
-  posMk.setLatLng(ll); accC.setLatLng(ll); accC.setRadius(S.pos.acc||10);
+  const gliding= (PANI.to&&PANI.to[0]===ll[0]&&PANI.to[1]===ll[1]) ? !!PANI.raf : animPos(ll);
+  accC.setRadius(S.pos.acc||10);
   const r=S.result;
   if(r&&r.chain){
     const pts=r.chain.pts.map(x=>[x.lat,x.lon]);
@@ -826,7 +867,7 @@ function drawPos(){
     if(!snapMk) snapMk=L.circleMarker([r.snapPt.lat,r.snapPt.lon],{radius:4,color:'#33475b',weight:2,fillColor:'#FFFFFF',fillOpacity:1}).addTo(map); else snapMk.setLatLng([r.snapPt.lat,r.snapPt.lon]);
   } else { if(chainLine){map.removeLayer(chainLine);chainLine=null;} if(snapMk){map.removeLayer(snapMk);snapMk=null;} }
   if(!S.zoomedOnce){ S.zoomedOnce=true; map.setView(ll,Math.max(map.getZoom(),16)); }
-  else if(S.settings.follow) map.panTo(ll,{animate:true});
+  else if(S.settings.follow&&!gliding) map.panTo(ll,{animate:true});
 }
 
 /* ================== Position ================== */
@@ -853,7 +894,7 @@ function startGps(){
     setGps('GPS: aus');
     toast(err.code===1?'Standortfreigabe verweigert – Testmodus aktiv.':'GPS-Fehler: '+(err.message||'kein Signal'));
     if(err.code===1) setMode('map');
-  },{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
+  },{enableHighAccuracy:true,maximumAge:0,timeout:20000});
 }
 function stopGps(){ if(S.watchId!=null){ navigator.geolocation.clearWatch(S.watchId); S.watchId=null; } }
 function setMode(m){
@@ -1482,9 +1523,10 @@ async function kmToPoints(ref,m){
   for(const sd of seeds.slice(0,10)){ if(hits.some(h=>hav(h.p,sd)<8000)) continue; if(Math.abs(sd.m-m)<2500) await tryFrom(sd,0); }
   return hits;
 }
-function convHtml(){
+function convDesk(){ return window.matchMedia&&matchMedia('(min-width:900px)').matches; }
+function convHtml(side){
   const swap='<div class="cv-swap"><button type="button" id="cvSwap" aria-label="Richtung wechseln" title="Richtung wechseln"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4v16M4 8l4-4 4 4"/><path d="M16 20V4M12 16l4 4 4-4"/></svg></button></div>';
-  const acts='<div class="cv-acts"><button class="btn small neutral" id="cvCopy" type="button">Kopieren</button></div>';
+  const acts='<div class="cv-acts"><button class="btn small neutral" id="cvCopy" type="button">Kopieren</button>'+(side?'<button class="btn small" id="cvShow" type="button">In Karte zeigen</button>':'')+'</div>';
   if(CV.dir==='asb2km'){
     return '<div class="cv-card"><div class="cv-h">Eingabe · ASB-Lage</div><label for="cvAoa">AoA (Abschnitt oder Ast)</label><input id="cvAoa" class="txt" autocomplete="off" placeholder="7220047O7220078O" value="'+esc(CV.aoa||'')+'"><div id="cvAoaInfo" class="hint" style="margin:4px 0 8px"></div><label for="cvSt">Station [m]</label><input id="cvSt" inputmode="decimal" autocomplete="off" placeholder="709" value="'+esc(CV.st||'')+'"></div>'
       +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · Betriebs-km</div><div id="cvOut" class="cv-out">AoA und Station eingeben.</div></div>'+acts;
@@ -1493,16 +1535,34 @@ function convHtml(){
   return '<div class="cv-card"><div class="cv-h">Eingabe · Betriebs-km</div><label>Autobahn</label><div class="cv-refs" role="group" aria-label="Autobahn">'+refs+'</div><label for="cvKm">Betr.-km</label><input id="cvKm" inputmode="decimal" autocomplete="off" placeholder="205,408" value="'+esc(CV.km||'')+'"></div>'
     +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · ASB-Lage</div><div id="cvOut" class="cv-out">Autobahn wählen und km eingeben.</div></div>'+acts;
 }
-function openConvert(){
+function initConv(){
   CV=Object.assign({dir:'asb2km',aoa:'',st:'',ref:S.settings.tafelRef||'A 8',km:'',res:null,seq:0},LS.get(K_CONV,{}),{res:null,seq:0});
   if(!CV.aoa){ const last=LS.get(K_ASBQ,null); if(last){ CV.aoa=last.aoa; CV.st=last.st; } }
-  renderConvert();
+}
+function openConvert(){
+  if(convDesk()&&CV&&document.querySelector('#cvSide .cv-card')){   // Desktop: Rechner steht in der Seitenleiste
+    const sd=document.getElementById('cvSide'); sd.scrollIntoView({behavior:'smooth',block:'nearest'});
+    const inp=sd.querySelector('input'); if(inp) setTimeout(()=>inp.focus(),300); return;
+  }
+  initConv(); renderConvert();
+}
+function mountConvSide(){
+  const sd=document.getElementById('cvSide'); if(!sd) return;
+  if(convDesk()){ if(document.querySelector('#dlgBody #cvSwap')) closeDlg(); if(!CV) initConv(); renderConvert(); }
+  else sd.innerHTML='';
 }
 function saveConv(){ LS.set(K_CONV,{dir:CV.dir,aoa:CV.aoa,st:CV.st,ref:CV.ref,km:CV.km}); }
 function renderConvert(){
   const title= CV.dir==='asb2km'? 'ASB → Betriebs-km' : 'Betriebs-km → ASB';
-  openDlg(title,convHtml(),'In Karte zeigen',()=>{ if(!CV.res||!CV.res.p){ toast('Noch kein Ergebnis.'); return false; } convShow(); return true; });
   const $$=id=>document.getElementById(id);
+  const sd=$$('cvSide');
+  if(sd&&convDesk()){
+    sd.innerHTML='<div class="cvs-head"><span class="tb-lbl">Umrechnen</span><span class="tb-hint">'+title+'</span></div>'+convHtml(true);
+    $$('cvShow').onclick=()=>{ if(!CV.res||!CV.res.p){ toast('Noch kein Ergebnis.'); return; } convShow(); };
+  } else {
+    if(sd) sd.innerHTML='';
+    openDlg(title,convHtml(),'In Karte zeigen',()=>{ if(!CV.res||!CV.res.p){ toast('Noch kein Ergebnis.'); return false; } convShow(); return true; });
+  }
   $$('cvSwap').onclick=convSwap;
   $$('cvCopy').onclick=()=>{ if(!CV.res||!CV.res.text){ toast('Noch kein Ergebnis.'); return; } clip(CV.res.text); };
   if(CV.dir==='asb2km'){
@@ -1764,6 +1824,7 @@ function start(){
   if(typeof L==='undefined'){ document.getElementById('map').innerHTML='<div style="padding:16px">Kartenbibliothek nicht geladen – Internetverbindung prüfen.</div>'; }
   else initMap();
   bind(); syncButtons(); syncTafelSw(); restoreCache(); updateStatus(); S.snapP=loadSnapshot();
+  mountConvSide(); if(window.matchMedia){ const mq=matchMedia('(min-width:900px)'); (mq.addEventListener?mq.addEventListener('change',mountConvSide):mq.addListener(mountConvSide)); }
   if(map) drawData();
   if(S.settings.mode==='gps') startGps(); else setGps('GPS: Testmodus');
   render();
