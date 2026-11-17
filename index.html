@@ -405,7 +405,7 @@ const AESTE = [{"k":"7220047N7220047W","r":"A 8","L":3412,"g":3464,"t":"Ast","n1
 const WERK = []
 ;   // BASt BISStra 2026q2, Bestandsachsen A 8/A 81/A 831 (CC BY 4.0)
 const FERNZIEL = { A8:{steigend:'Karlsruhe',fallend:'München'}, A81:{steigend:'Singen',fallend:'Würzburg'}, A831:{steigend:'Singen',fallend:'Stuttgart'} };
-const OVERPASS = ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+const OVERPASS = ['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
 
 /* ================== Speicher ================== */
 const LS = {
@@ -504,7 +504,29 @@ function ingest(elements){
   return {nw,nm};
 }
 function inBoxInner(b,p){ const mLat=(b.n-b.s)*0.22, mLon=(b.e-b.w)*0.22; return p.lat>b.s+mLat&&p.lat<b.n-mLat&&p.lon>b.w+mLon&&p.lon<b.e-mLon; }
+/* OSM-Schnappschuss (beim Veröffentlichen erzeugt): Achsen + km-Tafeln der A 8, A 81, A 831 – kein Warten auf Overpass */
+const tileKey=(lat,lon)=>Math.floor(lat/0.05)+':'+Math.floor(lon/0.05);
+async function loadSnapshot(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  try{
+    const r=await fetch('osm-achsen.json'); if(!r.ok) return;
+    const d=await r.json(); if(!d||!d.ways) return;
+    const els=[]; const tiles=new Set();
+    for(const [id,ref,oneway,dest,nodes,flat] of d.ways){
+      const geometry=[]; for(let i=0;i<flat.length;i+=2){ const lat=flat[i]/1e6, lon=flat[i+1]/1e6; geometry.push({lat,lon});
+        const a=Math.floor(lat/0.05), b=Math.floor(lon/0.05); for(let x=-1;x<=1;x++) for(let y=-1;y<=1;y++) tiles.add((a+x)+':'+(b+y)); }
+      const tags={highway:'motorway',ref}; if(oneway) tags.oneway=oneway; if(dest) tags.destination=dest;
+      els.push({type:'way',id,nodes,geometry,tags});
+    }
+    for(const [id,la,lo,dist,ref,refh] of d.ms){ const tags={highway:'milestone',distance:dist}; if(ref) tags.ref=ref; if(refh) tags['ref:highway']=refh; els.push({type:'node',id,lat:la/1e6,lon:lo/1e6,tags}); }
+    ingest(els);
+    S.snapTiles=tiles; S.snapStand=d.stand||'';
+    updateStatus(); drawData(); recompute(); try{ drawTafeln(); }catch(_){}
+  }catch(_){}
+}
 async function loadAround(p,force){
+  if(S.snapP) await S.snapP;
+  if(!force && S.snapTiles && S.snapTiles.has(tileKey(p.lat,p.lon))) return;   // im Schnappschuss enthalten
   if(S.loading) return;
   if(!force && S.boxes.some(b=>inBoxInner(b,p))) return;
   const dLat=0.055, dLon=0.08;   // ca. 6 km in jede Richtung
@@ -515,21 +537,22 @@ async function loadBox(b){
   const bb=[b.s,b.w,b.n,b.e].map(v=>v.toFixed(5)).join(',');
   const q='[out:json][timeout:25];(way["highway"="motorway"]('+bb+');node["highway"="milestone"]('+bb+'););out body geom;';
   let ok=false,lastErr='';
-  for(const url of OVERPASS){
+  const ctls=OVERPASS.map(()=>new AbortController());
+  const tries=OVERPASS.map((url,i)=>(async()=>{
+    const to=setTimeout(()=>ctls[i].abort(),25000);
     try{
-      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),30000);
-      const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
-      clearTimeout(to);
-      if(!r.ok){ lastErr='HTTP '+r.status; continue; }
-      const j=await r.json();
-      ingest(j.elements||[]);
-      S.boxes.push(b);
-      cacheBox(b,j.elements||[]);
-      ok=true; break;
-    }catch(e){ lastErr=e.name==='AbortError'?'Zeitüberschreitung':e.message; }
-  }
+      const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctls[i].signal});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const j=await r.json(); return {j,i};
+    } finally { clearTimeout(to); }
+  })());
+  try{
+    const {j,i}=await Promise.any(tries);
+    ctls.forEach((c,k)=>{ if(k!==i) c.abort(); });
+    ingest(j.elements||[]); S.boxes.push(b); cacheBox(b,j.elements||[]); ok=true;
+  }catch(e){ lastErr=(e.errors&&e.errors.some(x=>x&&x.name==='AbortError'))?'Zeitüberschreitung':((e.errors&&e.errors[0]&&e.errors[0].message)||e.message); }
   S.loading=false;
-  if(!ok) toast('OSM-Daten nicht ladbar ('+lastErr+'). Netz prüfen und ⟳ tippen.');
+  if(!ok) toast('OSM-Daten nicht ladbar ('+lastErr+'). Die Server sind gerade überlastet – Karte später erneut verschieben.');
   updateStatus(); drawData(); recompute();
 }
 function cacheBox(b,elements){
@@ -1740,7 +1763,7 @@ function start(){
   asbPrep();
   if(typeof L==='undefined'){ document.getElementById('map').innerHTML='<div style="padding:16px">Kartenbibliothek nicht geladen – Internetverbindung prüfen.</div>'; }
   else initMap();
-  bind(); syncButtons(); syncTafelSw(); restoreCache(); updateStatus();
+  bind(); syncButtons(); syncTafelSw(); restoreCache(); updateStatus(); S.snapP=loadSnapshot();
   if(map) drawData();
   if(S.settings.mode==='gps') startGps(); else setGps('GPS: Testmodus');
   render();

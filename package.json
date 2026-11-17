@@ -1,0 +1,6 @@
+{
+  "name": "betriebskilometer",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node tools/build.mjs" }
+}

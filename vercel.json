@@ -2,6 +2,19 @@
   "cleanUrls": true,
   "headers": [
     {
+      "source": "/osm-achsen.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
       "source": "/km-referenz.json",
       "headers": [
         {
@@ -49,5 +62,7 @@
         }
       ]
     }
-  ]
+  ],
+  "buildCommand": "node tools/build.mjs",
+  "outputDirectory": "dist"
 }

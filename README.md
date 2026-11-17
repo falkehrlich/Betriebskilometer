@@ -26,3 +26,10 @@ Alle Tools (Betriebskilometer, später Mängelmelder und RSA-Musterplangenerator
    Gleicher km-Wert im Umkreis von 30 m wird durch die neue Messung ersetzt.
 
 Format je Punkt: `{"lat", "lon", "m" (Meter), "ref" ("A 8"), "label", "src" ("tafel"|"sba"), "erfasst", "acc"}`.
+
+## OSM-Schnappschuss (`osm-achsen.json`)
+
+Beim Veröffentlichen lädt `tools/build.mjs` die Achsen und km-Tafeln der A 8, A 81 und A 831 (BW) einmal von Overpass
+und legt sie als `osm-achsen.json` neben die App. Die App nutzt diesen Schnappschuss und fragt Overpass nur noch außerhalb
+des Gebiets ab. Ist Overpass beim Build nicht erreichbar, wird der zuletzt veröffentlichte Schnappschuss übernommen.
+Aktualisieren: neu veröffentlichen (Push oder „Redeploy“ in Vercel).
