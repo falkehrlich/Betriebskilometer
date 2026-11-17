@@ -40,6 +40,42 @@ async function ask(query, label) {
   }
   return null;
 }
+// Postpass (Geofabrik, PostGIS-SQL auf OSM-Daten) – Alternative, wenn Overpass überlastet ist
+const POSTPASS = 'https://postpass.geofabrik.de/api/0.2/interpreter';
+async function pp(sql, label) {
+  for (let round = 0; round < 3; round++) {
+    try {
+      const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 180000);
+      const r = await fetch(POSTPASS, { method: 'POST', body: 'data=' + encodeURIComponent(sql), signal: ctl.signal, headers: HEADERS });
+      clearTimeout(to);
+      if (!r.ok) { console.log(label, 'Postpass HTTP', r.status, (await r.text()).slice(0, 160)); await sleep(20000); continue; }
+      const j = await r.json(); console.log(label, 'Postpass', (j.features || []).length, 'Objekte'); return j;
+    } catch (e) { console.log(label, 'Postpass', e.name === 'AbortError' ? 'Zeitüberschreitung' : e.message); await sleep(20000); }
+  }
+  return null;
+}
+async function postpass() {
+  const env = `ST_MakeEnvelope(${BBOX[1]},${BBOX[0]},${BBOX[3]},${BBOX[2]},4326)`;
+  const lines = await pp(`SELECT osm_id, tags, geom FROM postpass_line WHERE tags->>'highway'='motorway' AND tags->>'ref' ~ '${RE}' AND geom && ${env}`, 'Achsen');
+  if (!lines || !(lines.features || []).length) return null;
+  const pts = await pp(`SELECT osm_id, tags, geom FROM postpass_point WHERE tags->>'highway'='milestone' AND geom && ${env}`, 'Tafeln');
+  if (!pts) return null;
+  const nid = new Map(); let next = -1;
+  const node = (lon, lat) => { const k = lat.toFixed(7) + ',' + lon.toFixed(7); if (!nid.has(k)) nid.set(k, next--); return nid.get(k); };
+  const tagsOf = f => { const t = (f.properties || {}).tags; return typeof t === 'string' ? JSON.parse(t) : (t || {}); };
+  const els = [];
+  for (const f of lines.features) {
+    const g = f.geometry; if (!g) continue;
+    const parts = g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : [];
+    parts.forEach((c, i) => els.push({ type: 'way', id: Number((f.properties || {}).osm_id) * 10 + i, tags: tagsOf(f),
+      nodes: c.map(([lon, lat]) => node(lon, lat)), geometry: c.map(([lon, lat]) => ({ lat, lon })) }));
+  }
+  for (const f of pts.features) {
+    const g = f.geometry; if (!g || g.type !== 'Point') continue;
+    els.push({ type: 'node', id: Number((f.properties || {}).osm_id), lat: g.coordinates[1], lon: g.coordinates[0], tags: tagsOf(f) });
+  }
+  return { elements: els, osm3s: { timestamp_osm_base: new Date().toISOString() } };
+}
 async function overpass() {
   // 1) Achsen (leicht): nur Autobahn-Wege mit passender Nummer
   const bb = BBOX.join(',');
@@ -85,7 +121,8 @@ function compact(j) {
   return { v: 1, stand: (j.osm3s && j.osm3s.timestamp_osm_base) || new Date().toISOString(), quelle: 'OpenStreetMap-Mitwirkende (ODbL)', ways, ms };
 }
 const out = path.join(DIST, 'osm-achsen.json');
-const j = await overpass();
+let j = await postpass();
+if (!j) j = await overpass();
 if (j) {
   const c = compact(j);
   fs.writeFileSync(out, JSON.stringify(c));
