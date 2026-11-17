@@ -164,6 +164,8 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
 #note:empty{display:none}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .actions .btn{line-height:1.15;text-align:center}
+.actions .btn,.asbbtns .btn{white-space:nowrap}
+@media (max-width:360px){ .actions .btn{padding:0 8px;font-size:15px} }
 /* Buttons: einheitlich gefuellt (Musterplangenerator), Gefahr rot */
 .btn{appearance:none;border:1px solid var(--accent);background:var(--accent);color:#fff;font:600 16px "Titillium Web",sans-serif;min-height:56px;padding:0 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px}
 .btn:hover{background:var(--accent-strong);border-color:var(--accent-strong)}
@@ -321,7 +323,7 @@ header{background:var(--surface);color:var(--text);min-height:56px;display:flex;
     <div id="asb"></div>
     <div id="note"></div>
     <div class="actions">
-      <button class="btn" id="btnCal">km-Punkt in Karte setzen</button>
+      <button class="btn" id="btnCal">km-Punkt setzen</button>
       <button class="btn" id="btnCopy" title="Standort als Text in die Zwischenablage kopieren">Standort kopieren</button>
     </div>
     <div id="status"><span id="stGps">GPS: –</span><span id="stData">OSM: –</span><span id="stCal">Kalibriert: 0</span></div>
@@ -1075,7 +1077,7 @@ function queryHtml(){
   if(a&&isAst(a.a)) h+='<div class="mono" style="margin-top:6px;font-weight:600">ASB Ast '+esc(a.a.k)+' · St. '+a.st.toLocaleString('de-DE')+'</div><div style="font-size:12.5px;color:var(--text-muted)">'+esc(asbLabel(a.a))+' · '+a.a.L.toLocaleString('de-DE')+'\u202Fm</div><div style="font-size:12.5px">'+astEndsHtml(a.a,()=>{ if(qMk&&qRes&&qRes.asb===a) qMk.setPopupContent(queryHtml()); })+'</div>';
   else if(a) h+='<div class="mono" style="margin-top:6px;font-weight:600">ASB '+esc(a.a.k)+' · St. '+a.st.toLocaleString('de-DE')+'</div><div style="font-size:12.5px;color:var(--text-muted)">'+esc(asbLabel(a.a))+' · '+a.a.L.toLocaleString('de-DE')+'\u202Fm</div>';
   h+='<div class="mono" style="color:var(--text-muted);margin-top:4px">'+q.p.lat.toFixed(5)+', '+q.p.lon.toFixed(5)+'</div>';
-  h+='<div class="asbbtns"><button class="btn small" data-q="copy">Kopieren</button><button class="btn small" data-q="cal">km-Tafel hier</button></div></div>';
+  h+='<div class="asbbtns"><button class="btn small" data-q="copy">Kopieren</button><button class="btn small" data-q="cal">km-Punkt hier</button></div></div>';
   return h;
 }
 function queryCopy(){
@@ -1098,7 +1100,7 @@ document.addEventListener('click',e=>{
 function renderMenu(){
   document.getElementById('calCount').textContent=S.cal.length;
   const l=document.getElementById('calList');
-  if(!S.cal.length) l.innerHTML='<div class="empty">Noch keine eigenen Punkte. „km-Punkt in Karte setzen“ vor Ort oder Karte antippen → „km-Tafel hier“.</div>';
+  if(!S.cal.length) l.innerHTML='<div class="empty">Noch keine eigenen Punkte. „km-Punkt setzen“ vor Ort oder Karte antippen → „km-Punkt hier“.</div>';
   else l.innerHTML=S.cal.slice().sort((a,b)=>(a.ref||'').localeCompare(b.ref||'')||a.m-b.m).slice(0,150).map(c=>'<div class="li"><span class="k">'+fmtBetrKm(c.m)+'</span><span class="t">'+esc((c.ref||'–')+' · '+(c.label||'')+' · '+new Date(c.t).toLocaleDateString('de-DE'))+'</span><button data-id="'+c.id+'" aria-label="Löschen">🗑</button></div>').join('')+(S.cal.length>150?'<div class="empty">… und '+(S.cal.length-150)+' weitere</div>':'');
   l.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>askDelete(S.cal.find(c=>c.id===b.dataset.id)));
   // Quellen
@@ -1800,7 +1802,7 @@ function onMapMoved(){
 /* ================== Events ================== */
 function bind(){
   const $=id=>document.getElementById(id);
-  $('btnCal').onclick=()=>{ if(!S.pos){ toast(S.settings.mode==='gps'?'Noch keine GPS-Position.':'Erst Position in der Karte antippen.'); return; } kmDialog(avgFix(),{title:'km-Punkt in Karte setzen',src:S.settings.mode==='gps'?'ort':'karte'}); };
+  $('btnCal').onclick=()=>{ if(!S.pos){ toast(S.settings.mode==='gps'?'Noch keine GPS-Position.':'Erst Position in der Karte antippen.'); return; } kmDialog(avgFix(),{title:'km-Punkt setzen',src:S.settings.mode==='gps'?'ort':'karte'}); };
   $('btnCopy').onclick=copyText;
   const openMenu=()=>{ renderMenu(); $('menu').classList.add('show'); };
   $('btnMenuTop').onclick=openMenu;
