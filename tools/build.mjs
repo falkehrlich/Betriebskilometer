@@ -127,6 +127,18 @@ if (j) {
   const c = compact(j);
   fs.writeFileSync(out, JSON.stringify(c));
   console.log('osm-achsen.json:', c.ways.length, 'Achsen,', c.ms.length, 'Tafeln,', fs.statSync(out).size, 'Bytes, Stand', c.stand);
+  // Auswertung je Autobahn (nur Protokoll): Fahrbahnlänge, Tafeln, Abdeckung
+  try {
+    const st = {}; const rk = r => (/831/.test(r) ? 'A 831' : /81/.test(r) && /(^|;) *A ?8 *(;|$)/.test(r) ? 'A 8/A 81' : /81/.test(r) ? 'A 81' : 'A 8');
+    const segs = [];
+    for (const w of c.ways) { const g = w[5], k = rk(w[1]); st[k] = st[k] || { km: 0, n: 0, ohne: 0, vals: [] };
+      for (let i = 0; i + 3 < g.length; i += 2) { const la = g[i] / 1e6, lo = g[i + 1] / 1e6, la2 = g[i + 2] / 1e6, lo2 = g[i + 3] / 1e6;
+        st[k].km += Math.hypot((la2 - la) * 111.32, (lo2 - lo) * 73.5); segs.push([la, lo, k]); } }
+    for (const m of c.ms) { const la = m[1] / 1e6, lo = m[2] / 1e6; let best = null, bd = 1e9;
+      for (const s of segs) { const d = Math.hypot((s[0] - la) * 111320, (s[1] - lo) * 73500); if (d < bd) { bd = d; best = s[2]; } }
+      if (!best) continue; st[best].n++; const v = parseFloat(String(m[3]).replace(',', '.')); if (isNaN(v)) st[best].ohne++; else st[best].vals.push(v); }
+    for (const [k, v] of Object.entries(st)) console.log('Auswertung', k + ':', Math.round(v.km), 'km Fahrbahn (beide Richtungen),', v.n, 'Tafeln =', (v.n / Math.max(1, v.km) * 10).toFixed(1), 'je 10 km,', v.ohne, 'ohne km-Wert, km-Bereich', v.vals.length ? Math.min(...v.vals) + '–' + Math.max(...v.vals) : '–');
+  } catch (e) { console.log('Auswertung fehlgeschlagen', e.message); }
 } else {
   // Overpass nicht erreichbar: letzten veröffentlichten Schnappschuss übernehmen
   try {
