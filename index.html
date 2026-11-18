@@ -284,6 +284,43 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
   #cvSide input{min-height:42px;font-size:18px}
   #cvSide input.txt{font-size:15px}
   #cvSide label{display:block;margin-bottom:4px}
+  /* kompakt: Seitenleiste passt ohne Scrollen auf die Höhe */
+  #panel{padding:14px 18px}
+  #asb{padding:6px 10px;margin-top:4px;line-height:1.35}
+  .actions{margin-top:8px}
+  .actions .btn{min-height:44px;font-size:15px}
+  #status{margin-top:6px;gap:10px;font-size:11px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+  #cvSide{margin-top:10px;padding-top:10px;gap:6px}
+  #cvSide .cv-card{padding:8px 10px}
+  #cvSide .cv-h{margin-bottom:4px;font-size:10.5px}
+  #cvSide label{font-size:12px;margin-bottom:2px}
+  #cvSide input{min-height:36px;font-size:16px;padding-top:4px;padding-bottom:4px}
+  #cvSide input.txt{font-size:14px}
+  #cvSide .cv-row2{display:grid;grid-template-columns:1fr 96px;gap:8px}
+  #cvSide .cv-swap{margin:0}
+  #cvSide .cv-swap button{width:34px;height:34px}
+  #cvSide .cv-swap svg{width:18px;height:18px}
+  #cvSide .cv-km{font-size:24px}
+  #cvSide .cv-out{font-size:13px}
+  #cvSide .cv-acts .btn{min-height:38px;font-size:14px}
+  #cvSide .hint{font-size:11.5px}
+}
+@media (min-width:900px) and (max-height:780px){
+  #kmBig{font-size:38px;margin-top:2px}
+  .actions .btn{min-height:40px}
+  #cvSide input{min-height:32px}
+  #cvSide .cv-acts .btn{min-height:34px}
+  #cvSide .cv-km{font-size:21px}
+  #panel{padding-top:10px;padding-bottom:10px}
+  #cvSide{margin-top:6px;padding-top:6px}
+  .actions{margin-top:6px}
+}
+@media (min-width:900px) and (max-height:700px){
+  #cvSide .cvs-head,#cvAoaInfo{display:none}
+  #kmBig{font-size:34px}
+  #asb{font-size:12px;padding:4px 8px}
+  #asb .mono{font-size:11px}
+  #abschnitt{font-size:12px}
 }
 .qpin{width:22px;height:22px;border-radius:50%;background:var(--accent-2);border:3px solid #fff;box-shadow:0 0 0 2px var(--accent-2),0 2px 6px rgba(0,0,0,.35)}
 .qkm{font:700 26px/1.1 'IBM Plex Mono',monospace;color:#1b2430;margin:4px 0 4px}.qkm span{font:500 14px 'IBM Plex Sans',sans-serif;color:var(--text-muted)}
@@ -844,7 +881,11 @@ function initMap(){
   layData=L.layerGroup().addTo(map); layCal=L.layerGroup().addTo(map);
   map.on('click',onMapClick);
   map.on('moveend',onMapMoved);
-  map.on('dragstart',()=>{ if(S.settings.follow){ S.settings.follow=false; saveSettings(); syncButtons(); } });
+  const unfollow=()=>{ if(S.settings.follow){ S.settings.follow=false; saveSettings(); syncButtons(); } };
+  map.on('dragstart',unfollow);
+  // Mausrad und Zwei-Finger-Zoom verschieben die Kartenmitte → „Karte folgt“ aus, sonst springt die Karte zurück zur Position
+  map.getContainer().addEventListener('wheel',unfollow,{passive:true});
+  map.getContainer().addEventListener('touchstart',e=>{ if(e.touches&&e.touches.length>1) unfollow(); },{passive:true});
 }
 function drawData(){
   layData.clearLayers();
@@ -1619,6 +1660,8 @@ function convHtml(side){
   const swap='<div class="cv-swap"><button type="button" id="cvSwap" aria-label="Richtung wechseln" title="Richtung wechseln"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4v16M4 8l4-4 4 4"/><path d="M16 20V4M12 16l4 4 4-4"/></svg></button></div>';
   const acts='<div class="cv-acts"><button class="btn small neutral" id="cvCopy" type="button">Kopieren</button>'+(side?'<button class="btn small" id="cvShow" type="button">In Karte zeigen</button>':'')+'</div>';
   if(CV.dir==='asb2km'){
+    if(side) return '<div class="cv-card"><div class="cv-h">Eingabe · ASB-Lage</div><div class="cv-row2"><div><label for="cvAoa">AoA</label><input id="cvAoa" class="txt" autocomplete="off" placeholder="7220047O7220078O" value="'+esc(CV.aoa||'')+'"></div><div><label for="cvSt">Station [m]</label><input id="cvSt" inputmode="decimal" autocomplete="off" placeholder="709" value="'+esc(CV.st||'')+'"></div></div><div id="cvAoaInfo" class="hint" style="margin:4px 0 0"></div></div>'
+      +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · Betriebs-km</div><div id="cvOut" class="cv-out">AoA und Station eingeben.</div></div>'+acts;
     return '<div class="cv-card"><div class="cv-h">Eingabe · ASB-Lage</div><label for="cvAoa">AoA (Abschnitt oder Ast)</label><input id="cvAoa" class="txt" autocomplete="off" placeholder="7220047O7220078O" value="'+esc(CV.aoa||'')+'"><div id="cvAoaInfo" class="hint" style="margin:4px 0 8px"></div><label for="cvSt">Station [m]</label><input id="cvSt" inputmode="decimal" autocomplete="off" placeholder="709" value="'+esc(CV.st||'')+'"></div>'
       +swap+'<div class="cv-card res" aria-live="polite"><div class="cv-h">Ergebnis · Betriebs-km</div><div id="cvOut" class="cv-out">AoA und Station eingeben.</div></div>'+acts;
   }
@@ -1833,9 +1876,10 @@ function oppositeChain(r){
   return buildChain(sn.w,7000);
 }
 /* Tafeln automatisch: Autobahn, an der die Position liegt (≤ 100 m, wie beim km-Abgleich).
-   Ohne Position – oder wenn die Karte frei verschoben wurde – die Autobahn, die der Kartenmitte am nächsten liegt. */
+   Sonst – keine Position, Position abseits (z. B. Büro am Desktop) oder Karte frei verschoben –
+   die Autobahn, die der Kartenmitte am nächsten liegt (ab Zoomstufe 14). */
 function curTafelRef(){
-  if(S.pos&&S.settings.follow) return S.result&&S.result.ref ? S.result.ref : null;   // unterwegs: nur ≤ 100 m
+  if(S.pos&&S.settings.follow&&S.result&&S.result.ref) return S.result.ref;   // unterwegs auf der Autobahn (≤ 100 m)
   if(S.pos&&S.result&&S.result.ref&&map&&map.getBounds().contains([S.pos.lat,S.pos.lon])) return S.result.ref;
   if(!map||map.getZoom()<14) return null;
   const c=map.getCenter(), cp={lat:c.lat,lon:c.lng}, bb=map.getBounds();
