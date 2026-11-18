@@ -148,9 +148,11 @@ if (j) {
     for (const k in ab.refs) ab.refs[k].sort((x, y) => x[0] - y[0]);
     fs.writeFileSync(path.join(DIST, 'abdeckung.json'), JSON.stringify(ab));
     // Lücken (> 2 km zwischen zwei bekannten km-Werten) ins Protokoll
-    for (const k in ab.refs) { const L = ab.refs[k];
-      for (let i = 0; i + 1 < L.length; i++) { const A = L[i], B = L[i + 1]; const g = B[0] - A[0];
-        if (g > 2) console.log('LUECKE|' + k + '|' + A[0] + '|' + B[0] + '|' + A[1] + ',' + A[2] + '|' + B[1] + ',' + B[2]); } }
+    // jede fehlende 500-m-Tafel: Abstand zweier bekannter km-Werte > 0,5 km; kompakt, 20 Lücken je Zeile
+    for (const k in ab.refs) { const L = ab.refs[k], out = [];
+      for (let i = 0; i + 1 < L.length; i++) { const A = L[i], B = L[i + 1];
+        if (B[0] - A[0] > 0.55) out.push([A[0], B[0], A[1], A[2], B[1], B[2]].join(',')); }
+      for (let i = 0; i < out.length; i += 20) console.log('L5|' + k + '|' + out.slice(i, i + 20).join(';')); }
     for (const [k, v] of Object.entries(st)) console.log('Auswertung', k + ':', Math.round(v.km), 'km Fahrbahn (beide Richtungen),', v.n, 'Tafeln =', (v.n / Math.max(1, v.km) * 10).toFixed(1), 'je 10 km,', v.ohne, 'ohne km-Wert, km-Bereich', v.vals.length ? Math.min(...v.vals) + '–' + Math.max(...v.vals) : '–');
   } catch (e) { console.log('Auswertung fehlgeschlagen', e.message); }
 } else {
