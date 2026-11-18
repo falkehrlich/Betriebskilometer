@@ -480,7 +480,7 @@ function pointAt(pts,cum,s){ // Punkt bei Laufmeter s
 const S = {
   settings: Object.assign({mode:'gps',useOsm:true,theme:'light',dirNames:{},follow:true,tafelRef:'A 8',useWerk:true}, LS.get(K_SET,{})),
   cal: LS.get(K_CAL,[]),
-  abs: null,                      // Streckenabschnitte (Musterplangenerator) – entfernt        // {imported, items:[...]}
+  abs: null, msIgnored: new Map(),                      // Streckenabschnitte (Musterplangenerator) – entfernt        // {imported, items:[...]}
   ways: new Map(), startIdx:new Map(), endIdx:new Map(), milestones:new Map(),
   boxes: [], loading:false,
   pos: null, fixes: [], heading:null, speed:null,
@@ -676,7 +676,7 @@ function collectAnchors(chain){
       if(!ms.ref && band && (ms.m<band[0]||ms.m>band[1])) continue;   // km-Wert gehört zu einer anderen Autobahn
       if(S.cal.some(c=>hav(c,ms)<150)||werk.some(w=>hav(w,ms)<150)) continue;   // eigene und Werks-Punkte haben Vorrang
       const pr=projectOn(chain.pts,ms); if(!pr||pr.d>70) continue;
-      anchors.push({s:chain.cum[pr.i]+pr.t*(chain.cum[pr.i+1]-chain.cum[pr.i]),m:ms.m,src:'osm',label:'OSM-Tafel'});
+      anchors.push({s:chain.cum[pr.i]+pr.t*(chain.cum[pr.i+1]-chain.cum[pr.i]),m:ms.m,src:'osm',label:'OSM-Tafel',mss:[ms]});
     }
   }
   anchors.sort((a,b)=>a.s-b.s);
@@ -685,10 +685,29 @@ function collectAnchors(chain){
   for(const a of anchors){
     const prev=out.find(o=>Math.abs(o.m-a.m)<5&&Math.abs(o.s-a.s)<120);
     const rank={kal:3,werk:2,osm:1};
-    if(prev){ if((rank[a.src]||0)>(rank[prev.src]||0)) Object.assign(prev,a); else if(a.src===prev.src) prev.s=(prev.s+a.s)/2; }
+    if(prev){ if((rank[a.src]||0)>(rank[prev.src]||0)) Object.assign(prev,a); else if(a.src===prev.src){ prev.s=(prev.s+a.s)/2; if(a.mss) prev.mss=(prev.mss||[]).concat(a.mss); } }
     else out.push(Object.assign({},a));
   }
-  return out.sort((a,b)=>a.s-b.s);
+  out.sort((a,b)=>a.s-b.s);
+  return dropOsmOutliers(out);
+}
+/* Ausreißer: eine OSM-Tafel, die zu BEIDEN Nachbarn nicht passt (Abstand außerhalb 400–625 m je 500 m),
+   während die Nachbarn untereinander passen, liegt in OSM vermutlich falsch → ignorieren.
+   Eigene Punkte und Werkseinstellung werden nie verworfen. */
+function dropOsmOutliers(an){
+  let changed=true, guard=0;
+  while(changed && guard++<20){
+    changed=false;
+    for(let i=1;i<an.length-1;i++){
+      const a=an[i]; if(a.src!=='osm') continue;
+      if(slope(an[i-1],a)===null && slope(a,an[i+1])===null && slope(an[i-1],an[i+1])!==null){
+        (a.mss||[]).forEach(ms=>{ const k=ms.lat.toFixed(6)+','+ms.lon.toFixed(6); if(!S.msIgnored.has(k)){ S.msIgnored.set(k,{m:a.m,A:an[i-1].m,B:an[i+1].m}); S.msIgnoredNew=true; } });
+        an.splice(i,1); changed=true; break;
+      }
+    }
+  }
+  if(S.msIgnoredNew){ S.msIgnoredNew=false; clearTimeout(S.msIgnT); S.msIgnT=setTimeout(()=>{ if(typeof drawData==='function'&&layData) drawData(); },300); }
+  return an;
 }
 function slope(a,b){ const ds=b.s-a.s; if(Math.abs(ds)<50) return null; const k=(b.m-a.m)/ds; return (Math.abs(k)>=0.8&&Math.abs(k)<=1.25)?k:null; }
 function trendSign(an){ let p=0,n=0; for(let i=0;i<an.length-1;i++){ const k=slope(an[i],an[i+1]); if(k>0)p++; else if(k<0)n++; } return p>n?1:n>p?-1:0; }
@@ -830,8 +849,9 @@ function initMap(){
 function drawData(){
   layData.clearLayers();
   if(S.settings.useOsm) for(const ms of S.milestones.values()){
-    L.circleMarker([ms.lat,ms.lon],{radius:4,color:'#667085',weight:1.5,fillColor:'#FFFFFF',fillOpacity:1})
-      .bindTooltip('km '+fmtBetrKm(ms.m)+' · OSM',{className:'kmlbl osm',direction:'top'}).addTo(layData);
+    const ig=S.msIgnored.get(ms.lat.toFixed(6)+','+ms.lon.toFixed(6));
+    L.circleMarker([ms.lat,ms.lon], ig? {radius:5,color:'#C1121F',weight:2,dashArray:'2 2',fillColor:'#FFFFFF',fillOpacity:.6} : {radius:4,color:'#667085',weight:1.5,fillColor:'#FFFFFF',fillOpacity:1})
+      .bindTooltip(ig? 'km '+fmtBetrKm(ms.m)+' · OSM – <b>ignoriert</b><br>passt nicht zwischen km '+fmtBetrKm(Math.min(ig.A,ig.B))+' und '+fmtBetrKm(Math.max(ig.A,ig.B))+' (Lage in OSM vermutlich falsch)' : 'km '+fmtBetrKm(ms.m)+' · OSM',{className:'kmlbl osm',direction:'top'}).addTo(layData);
   }
   layCal.clearLayers();
   if(S.settings.showCal!==false) for(const c of S.cal){
