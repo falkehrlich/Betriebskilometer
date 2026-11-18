@@ -120,7 +120,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-famil
 h1,h2,h3{font-family:"Titillium Web",system-ui,sans-serif;margin:0}
 button{font-family:inherit}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-#app{display:flex;flex-direction:column;height:100%;height:100dvh}
+#app{display:flex;flex-direction:column;position:fixed;inset:0;overflow:hidden}
+html,body{overflow:hidden;overscroll-behavior:none}
 .leaflet-bottom.leaflet-right .leaflet-control-attribution{margin-right:66px}   /* Platz für den GPS-Knopf */
 @media (max-width:899px){ .leaflet-bottom.leaflet-right .leaflet-control-attribution{max-width:calc(100vw - 136px)!important} }
 /* Topbar wie Musterplangenerator */
@@ -131,7 +132,7 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
 .brand-proto-badge{font-family:"Titillium Web",sans-serif;font-weight:700;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;background:var(--warn-tint);color:var(--warn);padding:4px 9px;border-radius:999px;line-height:1;white-space:nowrap}
 .hbtn{background:var(--surface-2);border:1px solid var(--border);color:var(--text);min-width:44px;height:44px;font-size:18px;border-radius:8px;cursor:pointer}
 .hbtn:hover{border-color:var(--accent);color:var(--accent-strong)}
-#mapWrap{position:relative;flex:1 1 auto;min-height:160px}
+#mapWrap{position:relative;flex:1 1 auto;min-height:120px}
 #map{position:absolute;inset:0;background:var(--surface-3)}
 .mapBtns{position:absolute;right:calc(10px + env(safe-area-inset-right));bottom:10px;z-index:500;display:flex;flex-direction:column;gap:8px}
 .mbtn{width:48px;height:48px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:20px;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center}
