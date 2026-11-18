@@ -590,7 +590,7 @@ function snap(p,heading){
   const cands=[];
   for(const w of S.ways.values()){
     if(!w.refs.length) continue;
-    const pr=projectOn(w.geom,p); if(!pr||pr.d>90) continue;
+    const pr=projectOn(w.geom,p); if(!pr||pr.d>100) continue;
     cands.push({w,i:pr.i,t:pr.t,d:pr.d,b:bearing(w.geom[pr.i],w.geom[pr.i+1])});
   }
   if(!cands.length) return null;
@@ -963,7 +963,7 @@ function render(){
   if(!r){
     $('refLbl').textContent= ab0? ab0.a.r : '–'; $('kmVal').textContent='–'; $('dirLbl').textContent='Richtung –';
     setQual('grau', S.loading?'Lädt …':(S.ways.size?'Keine Autobahn':'Keine Daten'));
-    $('kmSub').textContent= S.ways.size? 'Keine Autobahnachse im Umkreis von 90 m.' : 'OSM-Daten fehlen – ⟳ tippen.';
+    $('kmSub').textContent= S.ways.size? 'Keine Autobahnachse im Umkreis von 100 m.' : 'OSM-Daten fehlen – ⟳ tippen.';
     $('abschnitt').textContent=''; return;
   }
   $('refLbl').textContent=r.ref;
@@ -1146,7 +1146,7 @@ function queryHtml(){
   const q=qRes; if(!q) return '';
   if(q.busy) return '<div class="asbpop"><b>Punkt abfragen</b><br><span style="color:var(--text-muted)">Berechne Betr.-km …</span></div>';
   const r=q.r, a=q.asb;
-  if(!r) return '<div class="asbpop"><b>Punkt abfragen</b><br>Keine Autobahnachse in der Nähe (max. 90 m).<br><span style="color:var(--text-muted)">Näher an die Fahrbahn tippen oder ⟳ Daten laden.</span></div>';
+  if(!r) return '<div class="asbpop"><b>Punkt abfragen</b><br>Keine Autobahnachse in der Nähe (max. 100 m).<br><span style="color:var(--text-muted)">Näher an die Fahrbahn tippen oder ⟳ Daten laden.</span></div>';
   const ql=quality(r), qt={gruen:'genau',gelb:'brauchbar',rot:'geschätzt'}[ql];
   let h='<div class="asbpop"><b>'+esc(r.ref)+'</b> · '+esc(r.richtung?dirName(r.ref,r.richtung):'Richtung ?')+
     '<div class="qkm"><span>km</span> '+(r.type==='unknown'?'≈ ':'')+fmtKm1(r.m)+'</div>'+
@@ -1812,10 +1812,10 @@ function oppositeChain(r){
   if(angDiff(sn.b,r.bearing)<120) return null;
   return buildChain(sn.w,7000);
 }
-/* Tafeln automatisch: Autobahn, an der die Position liegt (≤ 90 m, wie beim km-Abgleich).
+/* Tafeln automatisch: Autobahn, an der die Position liegt (≤ 100 m, wie beim km-Abgleich).
    Ohne Position – oder wenn die Karte frei verschoben wurde – die Autobahn, die der Kartenmitte am nächsten liegt. */
 function curTafelRef(){
-  if(S.pos&&S.settings.follow) return S.result&&S.result.ref ? S.result.ref : null;   // unterwegs: nur ≤ 90 m
+  if(S.pos&&S.settings.follow) return S.result&&S.result.ref ? S.result.ref : null;   // unterwegs: nur ≤ 100 m
   if(S.pos&&S.result&&S.result.ref&&map&&map.getBounds().contains([S.pos.lat,S.pos.lon])) return S.result.ref;
   if(!map||map.getZoom()<14) return null;
   const c=map.getCenter(), cp={lat:c.lat,lon:c.lng}, bb=map.getBounds();
