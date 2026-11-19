@@ -430,9 +430,10 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
       <label class="chk"><input type="checkbox" id="chkWerk"> Werkseinstellung verwenden (geprüfte km-Tafeln und SBA-Standorte)</label>
       <p class="hint" style="margin:0" id="werkInfo"></p>
       <label class="chk"><input type="checkbox" id="chkCal"> Eigene Punkte in der Karte anzeigen (werden weiter für die Berechnung genutzt)</label>
+      <label class="chk"><input type="checkbox" id="chkBkg"> BKG-Kilometrierung verwenden (volle km, A 8 · A 81 · A 831)</label>
       <label class="chk"><input type="checkbox" id="chkOsm"> OSM-Kilometertafeln verwenden</label>
       <button class="btn small" id="btnClearCache">OSM-Zwischenspeicher leeren</button>
-      <p class="hint" style="margin:0">Achsen und km-Tafeln: © OpenStreetMap-Mitwirkende (ODbL), geladen über die Overpass-API. Eigene Kalibrierpunkte haben immer Vorrang. Netzknoten-Stationierung: BASt, BISStra (Stand 2026q2), CC BY 4.0 – ohne Gewähr. SBA-Standorte und Fernziele aus dem RSA-Musterplangenerator.</p>
+      <p class="hint" style="margin:0">Achsen und km-Tafeln: © OpenStreetMap-Mitwirkende (ODbL), geladen über die Overpass-API. Kilometrierung der BAB (volle km): © Bundesamt für Kartographie und Geodäsie (2025), POI-Open, Datenlizenz Deutschland – Namensnennung 2.0. Rangfolge: eigene Punkte, Werkseinstellung, BKG, OSM. Netzknoten-Stationierung: BASt, BISStra (Stand 2026q2), CC BY 4.0 – ohne Gewähr. SBA-Standorte und Fernziele aus dem RSA-Musterplangenerator.</p>
     </div>
   </div>
 </div>
@@ -515,9 +516,9 @@ function pointAt(pts,cum,s){ // Punkt bei Laufmeter s
 
 /* ================== Zustand ================== */
 const S = {
-  settings: Object.assign({mode:'gps',useOsm:true,theme:'light',dirNames:{},follow:true,tafelRef:'A 8',useWerk:true}, LS.get(K_SET,{})),
+  settings: Object.assign({mode:'gps',useOsm:true,useBkg:true,theme:'light',dirNames:{},follow:true,tafelRef:'A 8',useWerk:true}, LS.get(K_SET,{})),
   cal: LS.get(K_CAL,[]),
-  abs: null, msIgnored: new Map(),                      // Streckenabschnitte (Musterplangenerator) – entfernt        // {imported, items:[...]}
+  abs: null, msIgnored: new Map(), bkg: [],                      // Streckenabschnitte (Musterplangenerator) – entfernt        // {imported, items:[...]}
   ways: new Map(), startIdx:new Map(), endIdx:new Map(), milestones:new Map(),
   boxes: [], loading:false,
   pos: null, fixes: [], heading:null, speed:null,
@@ -576,6 +577,8 @@ async function loadSnapshot(){
     }
     for(const [id,la,lo,dist,ref,refh] of d.ms){ const tags={highway:'milestone',distance:dist}; if(ref) tags.ref=ref; if(refh) tags['ref:highway']=refh; els.push({type:'node',id,lat:la/1e6,lon:lo/1e6,tags}); }
     ingest(els);
+    if(Array.isArray(d.bkg)){ S.bkg=d.bkg.filter(b=>/^A (8|81|831)$/.test(b[3])).map(([la,lo,m,ref])=>({lat:la/1e6,lon:lo/1e6,m,ref}));
+      if(S.bkg.length&&map&&map.attributionControl) map.attributionControl.addAttribution('km-Punkte © <a href="https://gdz.bkg.bund.de" target="_blank" rel="noopener">BKG</a> (2025)'); }
     S.snapTiles=tiles; S.snapStand=d.stand||'';
     updateStatus(); drawData(); recompute(); try{ drawTafeln(); }catch(_){}
   }catch(_){}
@@ -661,13 +664,14 @@ function buildChain(w0,maxLen,ref){
 /* ================== Anker & Interpolation ================== */
 let BAND_CACHE={key:'',bands:{}};
 function refBand(ref){
-  const key=S.milestones.size+'|'+S.cal.length+'|'+S.ways.size+'|'+(S.abs?S.abs.items.length:0);
+  const key=S.milestones.size+'|'+S.cal.length+'|'+S.ways.size+'|'+(S.abs?S.abs.items.length:0)+'|'+S.bkg.length;
   if(BAND_CACHE.key!==key){ BAND_CACHE={key,bands:{}}; }
   if(ref in BAND_CACHE.bands) return BAND_CACHE.bands[ref];
   const vals=[]; const rk=refKey(ref);
   SBA.forEach(x=>{ if(x.a===rk) vals.push(x.m); });
   S.cal.forEach(c=>{ if(c.ref===ref) vals.push(c.m); });
   WERK.forEach(w=>{ if(w.ref===ref) vals.push(w.m); });
+  S.bkg.forEach(b=>{ if(b.ref===ref) vals.push(b.m); });
   if(S.abs) S.abs.items.forEach(a=>{ if(a.autobahn===rk){ vals.push(a.vonKmM,a.bisKmM); } });
   // OSM-Tafeln an Abschnitten, die NUR diese Autobahn führen
   for(const ms of S.milestones.values()){
@@ -706,12 +710,17 @@ function collectAnchors(chain){
   for(const c of cals){ const pr=projectOn(chain.pts,c); if(pr&&pr.d<80) anchors.push({s:chain.cum[pr.i]+pr.t*(chain.cum[pr.i+1]-chain.cum[pr.i]),m:c.m,src:'kal',label:c.label||'Kalibriert',ref:c.ref}); }
   const werk=werkPts().filter(w=>!w.ref||chain.refs.includes(w.ref));
   for(const w of werk){ const pr=projectOn(chain.pts,w); if(pr&&pr.d<80) anchors.push({s:chain.cum[pr.i]+pr.t*(chain.cum[pr.i+1]-chain.cum[pr.i]),m:w.m,src:'werk',label:w.label||'Werkseinstellung',ref:w.ref}); }
+  const bkg= S.settings.useBkg ? S.bkg.filter(b=>chain.refs.includes(b.ref)&&!S.cal.some(c=>hav(c,b)<150)&&!werk.some(w=>hav(w,b)<150)) : [];
+  for(const b of bkg){ const pr=projectOn(chain.pts,b); if(pr&&pr.d<80) anchors.push({s:chain.cum[pr.i]+pr.t*(chain.cum[pr.i+1]-chain.cum[pr.i]),m:b.m,src:'bkg',label:'BKG-Kilometrierung',ref:b.ref}); }
   if(S.settings.useOsm){
     const band= chain.refs.length===1 ? refBand(chain.refs[0]) : null;
     for(const ms of S.milestones.values()){
       if(ms.ref && !chain.refs.includes(ms.ref)) continue;
       if(!ms.ref && band && (ms.m<band[0]||ms.m>band[1])) continue;   // km-Wert gehört zu einer anderen Autobahn
       if(S.cal.some(c=>hav(c,ms)<150)||werk.some(w=>hav(w,ms)<150)) continue;   // eigene und Werks-Punkte haben Vorrang
+      if(bkg.some(b=>hav(b,ms)<150)) continue;   // BKG-Punkt an derselben Stelle hat Vorrang
+      const bx=bkg.find(b=>Math.abs(b.m-ms.m)<1&&hav(b,ms)<5000);   // gleicher km laut BKG an anderer Stelle → OSM-Tafel liegt falsch
+      if(bx){ const k=ms.lat.toFixed(6)+','+ms.lon.toFixed(6); if(!S.msIgnored.has(k)){ S.msIgnored.set(k,{m:ms.m,bkg:Math.round(hav(bx,ms))}); S.msIgnoredNew=true; } continue; }
       const pr=projectOn(chain.pts,ms); if(!pr||pr.d>70) continue;
       anchors.push({s:chain.cum[pr.i]+pr.t*(chain.cum[pr.i+1]-chain.cum[pr.i]),m:ms.m,src:'osm',label:'OSM-Tafel',mss:[ms]});
     }
@@ -721,7 +730,7 @@ function collectAnchors(chain){
   const out=[];
   for(const a of anchors){
     const prev=out.find(o=>Math.abs(o.m-a.m)<5&&Math.abs(o.s-a.s)<120);
-    const rank={kal:3,werk:2,osm:1};
+    const rank={kal:4,werk:3,bkg:2,osm:1};
     if(prev){ if((rank[a.src]||0)>(rank[prev.src]||0)) Object.assign(prev,a); else if(a.src===prev.src){ prev.s=(prev.s+a.s)/2; if(a.mss) prev.mss=(prev.mss||[]).concat(a.mss); } }
     else out.push(Object.assign({},a));
   }
@@ -889,10 +898,14 @@ function initMap(){
 }
 function drawData(){
   layData.clearLayers();
+  if(S.settings.useBkg) for(const b of S.bkg){
+    L.circleMarker([b.lat,b.lon],{radius:4.5,color:'#2A9D8F',weight:2,fillColor:'#FFFFFF',fillOpacity:1})
+      .bindTooltip('km '+fmtBetrKm(b.m)+' · BKG',{className:'kmlbl osm',direction:'top'}).addTo(layData);
+  }
   if(S.settings.useOsm) for(const ms of S.milestones.values()){
     const ig=S.msIgnored.get(ms.lat.toFixed(6)+','+ms.lon.toFixed(6));
     L.circleMarker([ms.lat,ms.lon], ig? {radius:5,color:'#C1121F',weight:2,dashArray:'2 2',fillColor:'#FFFFFF',fillOpacity:.6} : {radius:4,color:'#667085',weight:1.5,fillColor:'#FFFFFF',fillOpacity:1})
-      .bindTooltip(ig? 'km '+fmtBetrKm(ms.m)+' · OSM – <b>ignoriert</b><br>passt nicht zwischen km '+fmtBetrKm(Math.min(ig.A,ig.B))+' und '+fmtBetrKm(Math.max(ig.A,ig.B))+' (Lage in OSM vermutlich falsch)' : 'km '+fmtBetrKm(ms.m)+' · OSM',{className:'kmlbl osm',direction:'top'}).addTo(layData);
+      .bindTooltip(ig? 'km '+fmtBetrKm(ms.m)+' · OSM – <b>ignoriert</b><br>'+(ig.bkg!=null? 'BKG zeigt diesen km '+ig.bkg+' m entfernt (Lage in OSM vermutlich falsch)' : 'passt nicht zwischen km '+fmtBetrKm(Math.min(ig.A,ig.B))+' und '+fmtBetrKm(Math.max(ig.A,ig.B))+' (Lage in OSM vermutlich falsch)') : 'km '+fmtBetrKm(ms.m)+' · OSM',{className:'kmlbl osm',direction:'top'}).addTo(layData);
   }
   layCal.clearLayers();
   if(S.settings.showCal!==false) for(const c of S.cal){
@@ -1038,7 +1051,7 @@ function render(){
   const ql=quality(r); setQual(ql,{gruen:'Genau',gelb:'Brauchbar',rot:'Geschätzt'}[ql]);
   let sub='Station '+fmtStation(r.m);
   if(r.type==='inter') sub+=' · zw. km '+fmtKm1(r.L.m)+' ('+fmtDist(r.s0-r.L.s)+') und '+fmtKm1(r.R.m)+' ('+fmtDist(r.R.s-r.s0)+')';
-  else if(r.near) sub+=' · nächster Punkt km '+fmtKm1(r.near.m)+' ('+fmtDist(r.s0-r.near.s)+', '+(r.near.src==='kal'?'kalibriert':'OSM')+')';
+  else if(r.near) sub+=' · nächster Punkt km '+fmtKm1(r.near.m)+' ('+fmtDist(r.s0-r.near.s)+', '+(r.near.src==='kal'?'kalibriert':r.near.src==='werk'?'Werk':r.near.src==='bkg'?'BKG':'OSM')+')';
   $('kmSub').textContent='';   // Station/Stützpunkte nicht mehr anzeigen
   if(r.type==='unknown') $('note').textContent='Zählrichtung unbekannt – zweiten Punkt kalibrieren.';
   if(r.type==='sprung') $('note').textContent='Möglicher Kilometrierungssprung zwischen km '+fmtKm1(r.L.m)+' und km '+fmtKm1(r.R.m)+' – hier kalibrieren.';
@@ -1095,7 +1108,7 @@ function setGps(t){ document.getElementById('stGps').textContent=t; }
 function setData(t){ document.getElementById('stData').textContent=t; }
 function updateStatus(){
   let nMot=0; for(const w of S.ways.values()) if(w.refs.length) nMot++;
-  if(!S.loading) setData('OSM: '+nMot+' Achsen · '+S.milestones.size+' Tafeln');
+  if(!S.loading) setData('OSM: '+nMot+' Achsen · '+S.milestones.size+' Tafeln'+(S.bkg.length?' · BKG '+S.bkg.length:''));
   document.getElementById('stCal').textContent='Kalibriert: '+S.cal.length;
 }
 function syncButtons(){
@@ -1103,6 +1116,7 @@ function syncButtons(){
   syncMapTools();
   document.querySelectorAll('#segMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===S.settings.mode));
   document.getElementById('chkOsm').checked=!!S.settings.useOsm;
+  document.getElementById('chkBkg').checked=!!S.settings.useBkg;
   document.getElementById('chkCal').checked=S.settings.showCal!==false;
   document.getElementById('chkWerk').checked=S.settings.useWerk!==false;
   document.getElementById('werkInfo').textContent= WERK.length? WERK.length+' geprüfte Punkte hinterlegt. Eigene Punkte im Umkreis von 100 m haben Vorrang.' : 'Noch keine geprüften Punkte hinterlegt. Erfasste Punkte über „Export JSON“ senden, dann werden sie als Werkseinstellung übernommen.';
@@ -1591,6 +1605,7 @@ function kmSeeds(ref){
   const out=[]; const band=refBand(ref);
   S.cal.forEach(c=>{ if(c.ref===ref) out.push({lat:c.lat,lon:c.lon,m:c.m}); });
   werkPts().forEach(w=>{ if(w.ref===ref) out.push({lat:w.lat,lon:w.lon,m:w.m}); });
+  if(S.settings.useBkg) S.bkg.forEach(b=>{ if(b.ref===ref) out.push({lat:b.lat,lon:b.lon,m:b.m}); });
   for(const ms of S.milestones.values()){ if(ms.ref? ms.ref===ref : (band&&ms.m>=band[0]&&ms.m<=band[1])) out.push({lat:ms.lat,lon:ms.lon,m:ms.m}); }
   return out;
 }
@@ -1917,7 +1932,7 @@ function drawTafeln(){
       const cls='kmtafel'+(t.own?' own':'')+(t.sicher?'':' calc')+(t.gap>1600&&!t.sicher?' weak':'');
       // Vorschlag A2: quer zur Fahrbahn, Schrift-Oberkante in Fahrtrichtung, ab äußerem Fahrbahnrand nach außen
       const mk=L.marker([t.p.lat,t.p.lon],{icon:L.divIcon({className:'',html:'<div class="kmt-anchor"><div class="'+cls+'" style="transform:rotate('+t.b.toFixed(1)+'deg)">'+txt+'</div></div>',iconSize:[0,0],iconAnchor:[0,0]}),keyboard:false,zIndexOffset:-100});
-      const info= t.own? 'eigener Punkt'+(t.label?': '+esc(t.label):'') : t.sicher? (t.src==='kal'?'eigener Kalibrierpunkt':t.src==='werk'?'Werkseinstellung'+(t.label?': '+esc(t.label):''):'Tafel aus OpenStreetMap')
+      const info= t.own? 'eigener Punkt'+(t.label?': '+esc(t.label):'') : t.sicher? (t.src==='kal'?'eigener Kalibrierpunkt':t.src==='werk'?'Werkseinstellung'+(t.label?': '+esc(t.label):''):t.src==='bkg'?'BKG-Kilometrierung (© BKG)':'Tafel aus OpenStreetMap')
         : 'berechnet zwischen km '+fmtBetrKm(t.A.m)+' und km '+fmtBetrKm(t.B.m)+' (Abstand '+fmtDist(t.gap)+')';
       mk.bindTooltip('<b>Betr.-km '+fmtBetrKm(t.km)+'</b><br>'+info+(t.A!==t.B?'<br>'+esc(ref+' · '+dirName(ref,t.A.m<t.B.m?'steigend':'fallend')):''),{direction:'top',offset:[0,-10]});
       mk.addTo(layTafel); cnt++;
@@ -1973,6 +1988,7 @@ function bind(){
   $('chkWerk').onchange=e=>{ S.settings.useWerk=e.target.checked; saveSettings(); tafelKey=''; recompute(); drawTafeln(); toast(e.target.checked?'Werkseinstellung aktiv.':'Werkseinstellung aus – nur eigene Punkte und OSM.'); };
   $('chkCal').onchange=e=>{ S.settings.showCal=e.target.checked; saveSettings(); drawData(); tafelKey=''; drawTafeln(); toast(e.target.checked?'Eigene Punkte eingeblendet.':'Eigene Punkte ausgeblendet – sie zählen weiter für die Berechnung.'); };
   $('chkOsm').onchange=e=>{ S.settings.useOsm=e.target.checked; saveSettings(); drawData(); recompute(); };
+  $('chkBkg').onchange=e=>{ S.settings.useBkg=e.target.checked; saveSettings(); drawData(); recompute(); try{ drawTafeln(); }catch(_){} };
   $('btnClearCache').onclick=()=>{ LS.set(K_OSM,[]); toast('Zwischenspeicher geleert.'); };
 }
 

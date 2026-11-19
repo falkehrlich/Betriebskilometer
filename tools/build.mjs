@@ -120,11 +120,37 @@ function compact(j) {
   }
   return { v: 1, stand: (j.osm3s && j.osm3s.timestamp_osm_base) || new Date().toISOString(), quelle: 'OpenStreetMap-Mitwirkende (ODbL)', ways, ms };
 }
+// BKG-Kilometrierung (POI-Open, © BKG, dl-de/by-2-0) – nur A 8, A 81, A 831, volle km
+async function bkgFetch() {
+  const base = 'https://services2.arcgis.com/jUpNdisbWqRpMo35/arcgis/rest/services/KmBAB/FeatureServer/0/query';
+  const res = []; let off = 0;
+  for (let page = 0; page < 20; page++) {
+    const q = new URLSearchParams({ where: "Bez IN ('A8','A81','A831')", geometry: '8.0,47.45,10.55,49.85', geometryType: 'esriGeometryEnvelope',
+      inSR: '4326', spatialRel: 'esriSpatialRelIntersects', outFields: 'Bez,Kilometer', outSR: '4326', returnGeometry: 'true',
+      orderByFields: 'OBJECTID', resultOffset: String(off), resultRecordCount: '1000', f: 'json' });
+    const r = await fetch(base + '?' + q, { signal: AbortSignal.timeout(30000) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const jj = await r.json(); if (jj.error) throw new Error(jj.error.message || 'Fehler');
+    const fs_ = jj.features || [];
+    for (const f of fs_) { const a = f.attributes, g = f.geometry; if (!g || a.Kilometer == null) continue;
+      res.push([Math.round(g.y * 1e6), Math.round(g.x * 1e6), Math.round(a.Kilometer * 1000), String(a.Bez).replace(/^A\s*/, 'A ')]); }
+    if (!jj.exceededTransferLimit && fs_.length < 1000) break; off += fs_.length;
+  }
+  return res;
+}
+let BKG = null;
+try { BKG = await bkgFetch(); const n = {}; BKG.forEach(b => n[b[3]] = (n[b[3]] || 0) + 1); console.log('BKG-Kilometrierung:', BKG.length, 'Punkte', JSON.stringify(n)); }
+catch (e) { console.log('BKG nicht erreichbar:', e.message); }
+if (!BKG || !BKG.length) {
+  try { const r = await fetch('https://betriebskilometer.vercel.app/osm-achsen.json'); const o = r.ok ? await r.json() : null;
+    if (o && o.bkg) { BKG = o.bkg; console.log('BKG aus letztem Schnappschuss:', BKG.length); } } catch (e) {}
+}
 const out = path.join(DIST, 'osm-achsen.json');
 let j = await postpass();
 if (!j) j = await overpass();
 if (j) {
   const c = compact(j);
+  if (BKG && BKG.length) { c.bkg = BKG; c.bkgQuelle = '© Bundesamt für Kartographie und Geodäsie (2025), dl-de/by-2-0, POI-Open'; }
   fs.writeFileSync(out, JSON.stringify(c));
   console.log('osm-achsen.json:', c.ways.length, 'Achsen,', c.ms.length, 'Tafeln,', fs.statSync(out).size, 'Bytes, Stand', c.stand);
   // Auswertung je Autobahn (nur Protokoll): Fahrbahnlänge, Tafeln, Abdeckung
@@ -145,6 +171,7 @@ if (j) {
       const own = String(m[4] || m[5] || ''); const k = best === 'A 8/A 81' ? 'A 8' : best;
       if (own && !new RegExp('(^|;) *' + k.replace(' ', ' ?') + ' *(;|$)').test(own)) continue;   // Tafel einer anderen Autobahn am Knoten
       (ab.refs[k] = ab.refs[k] || []).push([v, +la.toFixed(5), +lo.toFixed(5)]); }
+    if (BKG) for (const b of BKG) { if (!['A 8', 'A 81', 'A 831'].includes(b[3])) continue; (ab.refs[b[3]] = ab.refs[b[3]] || []).push([b[2] / 1000, +(b[0] / 1e6).toFixed(5), +(b[1] / 1e6).toFixed(5), 'bkg']); }
     for (const k in ab.refs) ab.refs[k].sort((x, y) => x[0] - y[0]);
     fs.writeFileSync(path.join(DIST, 'abdeckung.json'), JSON.stringify(ab));
     // Lücken (> 2 km zwischen zwei bekannten km-Werten) ins Protokoll
