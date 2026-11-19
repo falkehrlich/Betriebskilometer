@@ -566,7 +566,7 @@ const tileKey=(lat,lon)=>Math.floor(lat/0.05)+':'+Math.floor(lon/0.05);
 async function loadSnapshot(){
   if(!/^https?:$/.test(location.protocol)) return;
   try{
-    const r=await fetch('osm-achsen.json'); if(!r.ok) return;
+    const r=await fetch('osm-achsen.json',{cache:'no-cache'}); if(!r.ok) return;   // immer beim Server nachfragen (304, wenn unverändert)
     const d=await r.json(); if(!d||!d.ways) return;
     const els=[]; const tiles=new Set();
     for(const [id,ref,oneway,dest,nodes,flat] of d.ways){
