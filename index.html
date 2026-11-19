@@ -1978,6 +1978,8 @@ function bind(){
 
 /* ================== Start ================== */
 function start(){
+  // Handy: beim Öffnen immer Live-GPS und „Karte folgt“ (Testmodus gilt nur bis zum nächsten Öffnen). Desktop behält die gespeicherte Wahl.
+  if(window.matchMedia&&matchMedia('(max-width:899px)').matches){ S.settings.mode='gps'; S.settings.follow=true; saveSettings(); }
   asbPrep();
   if(typeof L==='undefined'){ document.getElementById('map').innerHTML='<div style="padding:16px">Kartenbibliothek nicht geladen – Internetverbindung prüfen.</div>'; }
   else initMap();
