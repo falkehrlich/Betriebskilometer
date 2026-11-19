@@ -1,0 +1,22 @@
+name: Werkdaten aktualisieren
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/werkdaten.yml', 'tools/werkdaten.mjs']
+permissions:
+  contents: write
+jobs:
+  werkdaten:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node tools/werkdaten.mjs
+      - name: Commit
+        run: |
+          git config user.name "werkdaten-bot"
+          git config user.email "werkdaten-bot@users.noreply.github.com"
+          git add werkdaten/achsen-bkg.json index.html
+          git diff --cached --quiet || git commit -m "Werkdaten (OSM-Achsen, km-Tafeln, BKG) aktualisiert"
+          git push
