@@ -33,3 +33,9 @@ Beim Veröffentlichen lädt `tools/build.mjs` die Achsen und km-Tafeln der A 8, 
 und legt sie als `osm-achsen.json` neben die App. Die App nutzt diesen Schnappschuss und fragt Overpass nur noch außerhalb
 des Gebiets ab. Ist Overpass beim Build nicht erreichbar, wird der zuletzt veröffentlichte Schnappschuss übernommen.
 Aktualisieren: neu veröffentlichen (Push oder „Redeploy“ in Vercel).
+
+## Werkseinstellung (Achsen, km-Tafeln, BKG, ASB)
+Achsen und km-Tafeln (OSM), die BKG-Kilometrierung und die ASB-Netzknoten stecken fest in `index.html`.
+Die App braucht dafür keinen Server-Abruf – sie funktioniert auch offline und als lokale Datei.
+Neu holen: GitHub → Actions → „Werkdaten aktualisieren“ → „Run workflow“. Die Action prüft die Daten
+(Mindestanzahl Achsen, Tafeln, BKG-Punkte) und schreibt sie nur dann in `werkdaten/achsen-bkg.json` und `index.html`.
