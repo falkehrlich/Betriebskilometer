@@ -868,6 +868,10 @@ function fmtNk(k){ return k.slice(0,4)+'\u202F'+k.slice(4,7)+'\u202F'+k.slice(7)
 let map, posMk, accC, snapMk, chainLine, layData, layCal;
 function initMap(){
   map=L.map('map',{zoomControl:false,attributionControl:true}).setView([48.72,9.2],12);
+  // Kartenfenster ändert seine Höhe (Infobereich unten wächst/schrumpft): Leaflet neu vermessen,
+  // sonst liegt die „Mitte“ unter dem Infobereich und der eigene Standort sitzt zu tief
+  if(window.ResizeObserver) new ResizeObserver(()=>{ map.invalidateSize({pan:false});
+    if(S.settings.follow&&S.zoomedOnce&&!S.pick&&(PANI.cur||S.pos)) map.setView(PANI.cur||[S.pos.lat,S.pos.lon],map.getZoom(),{animate:false}); }).observe(document.getElementById('map'));
   // Hintergrund: basemap.de (BKG) – funktioniert auch beim Öffnen als lokale Datei (OSM-Kachelserver sperren das)
   const bm=v=>L.tileLayer('https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/'+v+'/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png',{maxZoom:20,maxNativeZoom:18,attribution:'© GeoBasis-DE / BKG ('+new Date().getFullYear()+') CC BY 4.0 · Achsen © OpenStreetMap-Mitwirkende'});
   const farbe=bm('de_basemapde_web_raster_farbe'), grau=bm('de_basemapde_web_raster_grau');
