@@ -133,6 +133,7 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
 .hbtn{background:var(--surface-2);border:1px solid var(--border);color:var(--text);min-width:44px;height:44px;font-size:18px;border-radius:8px;cursor:pointer}
 .hbtn:hover{border-color:var(--accent);color:var(--accent-strong)}
 #mapWrap{position:relative;flex:1 1 auto;min-height:120px}
+#stData{display:none!important}
 #map{position:absolute;inset:0;background:var(--surface-3)}
 .mapBtns{position:absolute;right:calc(10px + env(safe-area-inset-right));bottom:10px;z-index:500;display:flex;flex-direction:column;gap:8px}
 .mbtn{width:48px;height:48px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:20px;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -394,7 +395,7 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
       <button class="btn" id="btnCal">km-Punkt setzen</button>
       <button class="btn" id="btnCopy" title="Standort als Text in die Zwischenablage kopieren">Standort kopieren</button>
     </div>
-    <div id="status"><span id="stGps">GPS: –</span><span id="stData">OSM: –</span><span id="stCal">Kalibriert: 0</span></div>
+    <div id="status"><span id="stGps">GPS: –</span><span id="stData" hidden>OSM: –</span><span id="stCal">Kalibriert: 0</span></div>
     <section id="cvSide" aria-label="Umrechnen ASB-Lage und Betriebs-km"></section>
   </div>
 </div>
