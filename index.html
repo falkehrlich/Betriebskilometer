@@ -169,6 +169,7 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 /* Handy-Infoansicht (Variante D) */
 .m-only{display:none}
+@media (min-width:900px){ .m-only{display:none!important} }
 .mini-copy{width:44px;height:44px;flex:none;display:none;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer}
 .mini-copy:active{background:var(--border)}
 #nextKn{display:none;align-items:center;gap:8px;font-size:17px;margin-top:6px}
@@ -409,8 +410,8 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
       <div class="seg" id="segMode"><button data-m="gps">Live-GPS</button><button data-m="map">Test: Karte antippen</button></div>
       <p class="hint" style="margin:0">Im Testmodus setzt ein Tipp in die Karte die Position – zum Ausprobieren am Schreibtisch.</p>
     </div>
-    <h3>Umrechnen</h3>
-    <div class="grp"><button class="btn small" id="btnAsbMenu"><span>ASB-Lage</span> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px;margin:0 6px"><path d="M4 8h16M16 4l4 4-4 4"/><path d="M20 16H4M8 12l-4 4 4 4"/></svg> <span>Betriebs-km</span></button>
+    <h3 class="m-only">Umrechnen</h3>
+    <div class="grp m-only"><button class="btn small" id="btnAsbMenu"><span>ASB-Lage</span> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px;margin:0 6px"><path d="M4 8h16M16 4l4 4-4 4"/><path d="M20 16H4M8 12l-4 4 4 4"/></svg> <span>Betriebs-km</span></button>
       <p class="hint" style="margin:0">AoA + Station in Betr.-km umrechnen – oder umgekehrt. Richtung per Pfeil wechseln.</p></div>
     <h3>Listen importieren (CSV / Excel)</h3>
     <div class="grp">
