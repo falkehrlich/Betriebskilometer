@@ -443,7 +443,7 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
       <p class="hint" style="margin:0"><b>Achsen und km-Tafeln:</b> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a>, Lizenz <a href="https://opendatacommons.org/licenses/odbl/" target="_blank" rel="noopener">ODbL 1.0</a>. Die daraus abgeleitete Werkseinstellung (<span id="snapStand">–</span>) steht ebenfalls unter der ODbL. Außerhalb von A 8, A 81 und A 831 live über die Overpass-API.</p>
       <p class="hint" style="margin:0"><b>Kilometrierung der BAB (volle km):</b> © <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> (2025) <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>, Datenquellen: <a href="https://sgx.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_poi-open.pdf" target="_blank" rel="noopener">POI-Open</a>. Daten verändert (Auszug A 8, A 81, A 831).</p>
       <p class="hint" style="margin:0"><b>Netzknoten und Stationierung (ASB):</b> Bundesanstalt für Straßenwesen (BASt), BISStra, Stand 2026q2, Lizenz <a href="https://creativecommons.org/licenses/by/4.0/deed.de" target="_blank" rel="noopener">CC BY 4.0</a>. Daten verändert (aufbereitet für A 8, A 81, A 831). Nutzung auf eigene Gefahr, ohne Gewähr.</p>
-      <p class="hint" style="margin:0"><b>Hintergrundkarten:</b> OpenStreetMap-Karte © OpenStreetMap-Mitwirkende, Nutzung nach der <a href="https://operations.osmfoundation.org/policies/tiles/" target="_blank" rel="noopener">Tile Usage Policy</a> · basemap.de © GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> (2025) <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · Luftbild BW © <a href="https://www.lgl-bw.de" target="_blank" rel="noopener">LGL-BW</a> (2025) <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a> · Luftbild Powered by Esri, © Esri, Maxar und Partner, es gelten die Nutzungsbedingungen von Esri.</p>
+      <p class="hint" style="margin:0"><b>Hintergrundkarten:</b> OpenStreetMap-Karte © OpenStreetMap-Mitwirkende, Nutzung nach der <a href="https://operations.osmfoundation.org/policies/tiles/" target="_blank" rel="noopener">Tile Usage Policy</a> · basemap.de © GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> (2025) <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · Luftbild BW © <a href="https://www.lgl-bw.de" target="_blank" rel="noopener">LGL-BW</a> (2025) <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>.</p>
       <p class="hint" style="margin:0"><b>Sonstiges:</b> SBA-Standorte und Fernziele aus dem RSA-Musterplangenerator · Kartenbibliothek Leaflet (BSD-2) · Schriften IBM Plex und Titillium Web (SIL Open Font License).</p>
     </div>
   </div>
@@ -886,20 +886,15 @@ function initMap(){
   // Hintergrund: basemap.de (BKG) – funktioniert auch beim Öffnen als lokale Datei (OSM-Kachelserver sperren das)
   const bm=v=>L.tileLayer('https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/'+v+'/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png',{maxZoom:20,maxNativeZoom:18,attribution:'© GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> ('+new Date().getFullYear()+') <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · Achsen © OpenStreetMap-Mitwirkende'});
   const farbe=bm('de_basemapde_web_raster_farbe'), grau=bm('de_basemapde_web_raster_grau');
-  const esri=(path,attr)=>L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/'+path+'/MapServer/tile/{z}/{y}/{x}',{maxZoom:20,maxNativeZoom:19,attribution:attr});
-  const satBild=()=>esri('World_Imagery','Powered by <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · Luftbild © Esri, Maxar · Achsen © OpenStreetMap-Mitwirkende');
-  // Luftbild mit Namen: Straßen/Straßennummern + Orts- und Gebietsnamen als Beschriftungs-Layer darüber
-  // Luftbild mit Namen: nur Orts- und Gebietsnamen (ohne Straßennamen-Ebene, damit das Bild ruhig bleibt)
-  const satNamen=L.layerGroup([satBild(),esri('Reference/World_Boundaries_and_Places','Orte © Esri')]);
-  const satPur=satBild();
   // Amtliches Luftbild Baden-Württemberg (LGL, DOP20, Open Data dl-de/by-2-0)
   const lgl=L.tileLayer.wms('https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C?',{layers:'IMAGES_DOP_20_RGB',format:'image/jpeg',version:'1.3.0',transparent:false,tileSize:512,maxZoom:20,maxNativeZoom:20,
     bounds:[[47.5,7.5],[49.8,10.5]],attribution:'Luftbild © <a href="https://www.lgl-bw.de" target="_blank" rel="noopener">LGL-BW</a> ('+new Date().getFullYear()+') <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a> · Achsen © OpenStreetMap-Mitwirkende'});
   // Grundeinstellung wie im Mängelmelder: OpenStreetMap-Standardkarte. Als lokale Datei (file://) sperrt der OSM-Server – dann basemap.de.
   const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,maxNativeZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende'});
-  const BASES={'Karte (OpenStreetMap)':osm,'Luftbild mit Namen':satNamen,'Luftbild ohne Namen':satPur,'Luftbild BW (LGL)':lgl,'Karte (basemap.de)':farbe,'Karte grau':grau};
+  const BASES={'Karte (OpenStreetMap)':osm,'Luftbild BW (LGL)':lgl,'Karte (basemap.de)':farbe,'Karte grau':grau};
   const online=/^https?:/.test(location.protocol);
-  let base=S.settings.base; if(!BASES[base]) base= online? 'Karte (OpenStreetMap)' : 'Karte (basemap.de)';
+  let base=S.settings.base; if(/^Luftbild/.test(base||'')) base='Luftbild BW (LGL)';   // frühere Esri-Luftbilder -> LGL
+  if(!BASES[base]) base= online? 'Karte (OpenStreetMap)' : 'Karte (basemap.de)';
   if(!online && base==='Karte (OpenStreetMap)') base='Karte (basemap.de)';
   BASES[base].addTo(map); document.documentElement.dataset.base= BASES[base]===osm||BASES[base]===farbe||BASES[base]===grau ? 'karte' : 'luftbild';
   L.control.layers(BASES,null,{position:'bottomleft'}).addTo(map);
