@@ -134,6 +134,7 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
 .hbtn:hover{border-color:var(--accent);color:var(--accent-strong)}
 #mapWrap{position:relative;flex:1 1 auto;min-height:120px}
 #stData{display:none!important}
+.srcLic a{color:var(--accent-strong)}
 #map{position:absolute;inset:0;background:var(--surface-3)}
 .mapBtns{position:absolute;right:calc(10px + env(safe-area-inset-right));bottom:10px;z-index:500;display:flex;flex-direction:column;gap:8px}
 .mbtn{width:48px;height:48px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:20px;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -435,7 +436,15 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
       <label class="chk"><input type="checkbox" id="chkBkg"> BKG-Kilometrierung verwenden (volle km, A 8 · A 81 · A 831)</label>
       <label class="chk"><input type="checkbox" id="chkOsm"> OSM-Kilometertafeln verwenden</label>
       <button class="btn small" id="btnClearCache">OSM-Zwischenspeicher leeren</button>
-      <p class="hint" style="margin:0">Achsen und km-Tafeln: © OpenStreetMap-Mitwirkende (ODbL), als Werkseinstellung fest in der App hinterlegt (<span id="snapStand">–</span>), außerhalb von A 8, A 81 und A 831 live über die Overpass-API. Kilometrierung der BAB (volle km): © Bundesamt für Kartographie und Geodäsie (2025), POI-Open, Datenlizenz Deutschland – Namensnennung 2.0. Rangfolge: eigene Punkte, Werkseinstellung, BKG, OSM. Netzknoten-Stationierung: BASt, BISStra (Stand 2026q2), CC BY 4.0 – ohne Gewähr. SBA-Standorte und Fernziele aus dem RSA-Musterplangenerator.</p>
+      <p class="hint" style="margin:0">Rangfolge bei der Berechnung: eigene Punkte, Werkseinstellung, BKG, OSM.</p>
+    </div>
+    <h3>Quellen und Lizenzen</h3>
+    <div class="grp srcLic">
+      <p class="hint" style="margin:0"><b>Achsen und km-Tafeln:</b> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a>, Lizenz <a href="https://opendatacommons.org/licenses/odbl/" target="_blank" rel="noopener">ODbL 1.0</a>. Die daraus abgeleitete Werkseinstellung (<span id="snapStand">–</span>) steht ebenfalls unter der ODbL. Außerhalb von A 8, A 81 und A 831 live über die Overpass-API.</p>
+      <p class="hint" style="margin:0"><b>Kilometrierung der BAB (volle km):</b> © <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> (2025) <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>, Datenquellen: <a href="https://sgx.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_poi-open.pdf" target="_blank" rel="noopener">POI-Open</a>. Daten verändert (Auszug A 8, A 81, A 831).</p>
+      <p class="hint" style="margin:0"><b>Netzknoten und Stationierung (ASB):</b> Bundesanstalt für Straßenwesen (BASt), BISStra, Stand 2026q2, Lizenz <a href="https://creativecommons.org/licenses/by/4.0/deed.de" target="_blank" rel="noopener">CC BY 4.0</a>. Daten verändert (aufbereitet für A 8, A 81, A 831). Nutzung auf eigene Gefahr, ohne Gewähr.</p>
+      <p class="hint" style="margin:0"><b>Hintergrundkarten:</b> OpenStreetMap-Karte © OpenStreetMap-Mitwirkende, Nutzung nach der <a href="https://operations.osmfoundation.org/policies/tiles/" target="_blank" rel="noopener">Tile Usage Policy</a> · basemap.de © GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> (2025) <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · Luftbild Powered by Esri, © Esri, Maxar und Partner, es gelten die Nutzungsbedingungen von Esri.</p>
+      <p class="hint" style="margin:0"><b>Sonstiges:</b> SBA-Standorte und Fernziele aus dem RSA-Musterplangenerator · Kartenbibliothek Leaflet (BSD-2) · Schriften IBM Plex und Titillium Web (SIL Open Font License).</p>
     </div>
   </div>
 </div>
@@ -580,7 +589,7 @@ async function loadSnapshot(){
     for(const [id,la,lo,dist,ref,refh] of d.ms){ const tags={highway:'milestone',distance:dist}; if(ref) tags.ref=ref; if(refh) tags['ref:highway']=refh; els.push({type:'node',id,lat:la/1e6,lon:lo/1e6,tags}); }
     ingest(els);
     if(Array.isArray(d.bkg)){ S.bkg=d.bkg.filter(b=>/^A (8|81|831)$/.test(b[3])).map(([la,lo,m,ref])=>({lat:la/1e6,lon:lo/1e6,m,ref}));
-      if(S.bkg.length&&map&&map.attributionControl) map.attributionControl.addAttribution('km-Punkte © <a href="https://gdz.bkg.bund.de" target="_blank" rel="noopener">BKG</a> (2025)'); }
+      if(S.bkg.length&&map&&map.attributionControl) map.attributionControl.addAttribution('km-Punkte © <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> (2025) <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>'); }
     S.snapTiles=tiles; S.snapStand=d.stand||'';
     { const el=document.getElementById('snapStand'); const t=new Date(S.snapStand); if(el) el.textContent='Stand '+(isNaN(t)?S.snapStand:t.toLocaleDateString('de-DE')); }
     updateStatus(); drawData(); recompute(); try{ drawTafeln(); }catch(_){}
@@ -875,10 +884,10 @@ function initMap(){
   if(window.ResizeObserver) new ResizeObserver(()=>{ map.invalidateSize({pan:false});
     if(S.settings.follow&&S.zoomedOnce&&!S.pick&&(PANI.cur||S.pos)) map.setView(PANI.cur||[S.pos.lat,S.pos.lon],map.getZoom(),{animate:false}); }).observe(document.getElementById('map'));
   // Hintergrund: basemap.de (BKG) – funktioniert auch beim Öffnen als lokale Datei (OSM-Kachelserver sperren das)
-  const bm=v=>L.tileLayer('https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/'+v+'/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png',{maxZoom:20,maxNativeZoom:18,attribution:'© GeoBasis-DE / BKG ('+new Date().getFullYear()+') CC BY 4.0 · Achsen © OpenStreetMap-Mitwirkende'});
+  const bm=v=>L.tileLayer('https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/'+v+'/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png',{maxZoom:20,maxNativeZoom:18,attribution:'© GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> ('+new Date().getFullYear()+') <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · Achsen © OpenStreetMap-Mitwirkende'});
   const farbe=bm('de_basemapde_web_raster_farbe'), grau=bm('de_basemapde_web_raster_grau');
   const esri=(path,attr)=>L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/'+path+'/MapServer/tile/{z}/{y}/{x}',{maxZoom:20,maxNativeZoom:19,attribution:attr});
-  const satBild=()=>esri('World_Imagery','Luftbild © Esri, Maxar · Achsen © OpenStreetMap-Mitwirkende');
+  const satBild=()=>esri('World_Imagery','Powered by <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · Luftbild © Esri, Maxar · Achsen © OpenStreetMap-Mitwirkende');
   // Luftbild mit Namen: Straßen/Straßennummern + Orts- und Gebietsnamen als Beschriftungs-Layer darüber
   // Luftbild mit Namen: nur Orts- und Gebietsnamen (ohne Straßennamen-Ebene, damit das Bild ruhig bleibt)
   const satNamen=L.layerGroup([satBild(),esri('Reference/World_Boundaries_and_Places','Orte © Esri')]);
