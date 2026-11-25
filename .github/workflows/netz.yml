@@ -1,0 +1,22 @@
+name: Netzdaten aktualisieren
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/netz.yml', 'tools/netz.mjs', 'werkdaten/asb/**']
+permissions:
+  contents: write
+jobs:
+  netz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node tools/netz.mjs
+      - name: Commit
+        run: |
+          git config user.name "netzdaten-bot"
+          git config user.email "netzdaten-bot@users.noreply.github.com"
+          git add netz werkdaten/gebiet.json werkdaten/bkg-suedwest.json index.html
+          git diff --cached --quiet || git commit -m "Netzdaten Niederlassung Südwest aktualisiert"
+          git pull --rebase && git push
