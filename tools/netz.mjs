@@ -65,7 +65,8 @@ async function grenze() {
   const j = await op('[out:json][timeout:180];rel(62611);out geom;', 'Landesgrenze');
   if (j && j.elements && j.elements[0]) {
     const segs = j.elements[0].members.filter(m => m.type === 'way' && (m.role === 'outer' || m.role === '') && m.geometry).map(m => m.geometry.map(g => [g.lat, g.lon]));
-    const rings = assemble(segs).map(r => dp(r, 0.0015).map(([a, b]) => [+a.toFixed(5), +b.toFixed(5)]));
+    const rings = assemble(segs).map(r => { const h = r.length >> 1; return dp(r.slice(0, h + 1), 0.0015).concat(dp(r.slice(h), 0.0015).slice(1)); }).map(r => r.map(([a, b]) => [+a.toFixed(5), +b.toFixed(5)]));
+    console.log('Grenze: Stücke', segs.length, 'Ringe', rings.map(r => r.length).join('/'));
     if (rings.length && rings.reduce((s, r) => s + r.length, 0) > 200) { console.log('Landesgrenze:', rings.length, 'Ringe'); return rings; }
   }
   if (fs.existsSync(old)) { console.log('Landesgrenze aus letzter Datei'); return JSON.parse(fs.readFileSync(old, 'utf8')).bw; }
