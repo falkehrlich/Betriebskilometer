@@ -410,6 +410,7 @@ header{position:sticky;top:0;z-index:900;background:var(--surface);color:var(--t
     <div class="grp">
       <div class="seg" id="segMode"><button data-m="gps">Live-GPS</button><button data-m="map">Test: Karte antippen</button></div>
       <p class="hint" style="margin:0">Im Testmodus setzt ein Tipp in die Karte die Position – zum Ausprobieren am Schreibtisch.</p>
+      <label class="chk"><input type="checkbox" id="chkAwake"> Bildschirm bei Live-GPS anlassen</label>
     </div>
     <h3 class="m-only">Umrechnen</h3>
     <div class="grp m-only"><button class="btn small" id="btnAsbMenu"><span>ASB-Lage</span> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px;margin:0 6px"><path d="M4 8h16M16 4l4 4-4 4"/><path d="M20 16H4M8 12l-4 4 4 4"/></svg> <span>Betriebs-km</span></button>
@@ -527,7 +528,7 @@ function pointAt(pts,cum,s){ // Punkt bei Laufmeter s
 
 /* ================== Zustand ================== */
 const S = {
-  settings: Object.assign({mode:'gps',useOsm:true,useBkg:true,theme:'light',dirNames:{},follow:true,tafelRef:'A 8',useWerk:true}, LS.get(K_SET,{})),
+  settings: Object.assign({mode:'gps',useOsm:true,useBkg:true,keepAwake:true,theme:'light',dirNames:{},follow:true,tafelRef:'A 8',useWerk:true}, LS.get(K_SET,{})),
   cal: LS.get(K_CAL,[]),
   abs: null, msIgnored: new Map(), bkg: [],                      // Streckenabschnitte (Musterplangenerator) – entfernt        // {imported, items:[...]}
   ways: new Map(), startIdx:new Map(), endIdx:new Map(), milestones:new Map(),
@@ -1023,8 +1024,22 @@ function stopGps(){ if(S.watchId!=null){ navigator.geolocation.clearWatch(S.watc
 function setMode(m){
   S.settings.mode=m; saveSettings(); S.heading=null;
   if(m==='gps') startGps(); else { stopGps(); setGps('GPS: Testmodus'); }
-  syncButtons();
+  syncButtons(); wakeSync();
 }
+// Bildschirm bei Live-GPS anlassen (Screen Wake Lock API). Das System gibt die Sperre frei,
+// sobald die App in den Hintergrund geht – beim Zurückkehren wird sie neu angefordert.
+const WAKE={lock:null,busy:false};
+async function wakeSync(){
+  const want=S.settings.mode==='gps'&&S.settings.keepAwake!==false&&document.visibilityState==='visible';
+  if(!('wakeLock' in navigator)) return;
+  if(!want){ if(WAKE.lock){ try{ await WAKE.lock.release(); }catch(_){} WAKE.lock=null; } return; }
+  if((WAKE.lock&&!WAKE.lock.released)||WAKE.busy) return;
+  WAKE.busy=true;
+  try{ WAKE.lock=await navigator.wakeLock.request('screen'); WAKE.lock.addEventListener('release',()=>{ WAKE.lock=null; }); }catch(_){ WAKE.lock=null; }
+  WAKE.busy=false;
+}
+document.addEventListener('visibilitychange',wakeSync);
+document.addEventListener('pointerdown',wakeSync,{passive:true});   // manche Browser erlauben die Sperre erst nach einer Berührung
 function avgFix(){
   const now=Date.now();
   const f=S.fixes.filter(x=>now-x.t<8000&&(x.acc||99)<=40);
@@ -1131,6 +1146,7 @@ function syncButtons(){
   document.querySelectorAll('#segMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===S.settings.mode));
   document.getElementById('chkOsm').checked=!!S.settings.useOsm;
   document.getElementById('chkBkg').checked=!!S.settings.useBkg;
+  document.getElementById('chkAwake').checked=S.settings.keepAwake!==false;
   document.getElementById('chkCal').checked=S.settings.showCal!==false;
   document.getElementById('chkWerk').checked=S.settings.useWerk!==false;
   document.getElementById('werkInfo').textContent= WERK.length? WERK.length+' geprüfte Punkte hinterlegt. Eigene Punkte im Umkreis von 100 m haben Vorrang.' : 'Noch keine geprüften Punkte hinterlegt. Erfasste Punkte über „Export JSON“ senden, dann werden sie als Werkseinstellung übernommen.';
@@ -2002,6 +2018,7 @@ function bind(){
   $('chkWerk').onchange=e=>{ S.settings.useWerk=e.target.checked; saveSettings(); tafelKey=''; recompute(); drawTafeln(); toast(e.target.checked?'Werkseinstellung aktiv.':'Werkseinstellung aus – nur eigene Punkte und OSM.'); };
   $('chkCal').onchange=e=>{ S.settings.showCal=e.target.checked; saveSettings(); drawData(); tafelKey=''; drawTafeln(); toast(e.target.checked?'Eigene Punkte eingeblendet.':'Eigene Punkte ausgeblendet – sie zählen weiter für die Berechnung.'); };
   $('chkOsm').onchange=e=>{ S.settings.useOsm=e.target.checked; saveSettings(); drawData(); recompute(); };
+  $('chkAwake').onchange=e=>{ S.settings.keepAwake=e.target.checked; saveSettings(); wakeSync(); toast(e.target.checked?'Bildschirm bleibt bei Live-GPS an.':'Bildschirm schaltet wieder nach den Systemeinstellungen ab.'); };
   $('chkBkg').onchange=e=>{ S.settings.useBkg=e.target.checked; saveSettings(); drawData(); recompute(); try{ drawTafeln(); }catch(_){} };
   $('btnClearCache').onclick=()=>{ LS.set(K_OSM,[]); toast('Zwischenspeicher geleert.'); };
 }
@@ -2017,6 +2034,7 @@ function start(){
   mountConvSide(); if(window.matchMedia){ const mq=matchMedia('(min-width:900px)'); (mq.addEventListener?mq.addEventListener('change',mountConvSide):mq.addListener(mountConvSide)); }
   if(map) drawData();
   if(S.settings.mode==='gps') startGps(); else setGps('GPS: Testmodus');
+  wakeSync();
   render();
 }
 window.KMF={S,openConvert,kmToPoints,WERK,werkPts,tafelnForChain,parseAsbInput,findAsb,openAsbSearch,utm32ToWgs,gkToWgs,parseCsv,evaluate,matchNk,startListImport,placeQueue,asbStation,ASB,compute,interpolate,collectAnchors,parseKm,fmtBetrKm,ingest,setPos,recompute,kmDialog,addCal};
