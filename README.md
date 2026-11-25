@@ -1,6 +1,6 @@
 # Betriebskilometer
 
-Web-App „Betriebs-Kilometer auf Autobahnen“ (Prototyp): GPS-Position → Betriebs-km für A 8, A 81 und A 831.
+Web-App „Betriebs-Kilometer auf Autobahnen“ (Prototyp): GPS-Position → Betriebs-km und ASB-Lage im Gebiet der Autobahn GmbH, Niederlassung Südwest (A 8, A 81, A 831 fest eingebaut; A 5, A 6, A 61, A 65, A 67, A 98, A 650, A 656, A 659, A 861, A 864 werden bei Bedarf aus `netz/` nachgeladen).
 
 - Statische Seite (`index.html`), keine Build-Schritte
 - Hosting: Vercel (automatisches Deployment bei jedem Push auf `main`)
@@ -39,3 +39,8 @@ Achsen und km-Tafeln (OSM), die BKG-Kilometrierung und die ASB-Netzknoten stecke
 Die App braucht dafür keinen Server-Abruf – sie funktioniert auch offline und als lokale Datei.
 Neu holen: GitHub → Actions → „Werkdaten aktualisieren“ → „Run workflow“. Die Action prüft die Daten
 (Mindestanzahl Achsen, Tafeln, BKG-Punkte) und schreibt sie nur dann in `werkdaten/achsen-bkg.json` und `index.html`.
+
+## Netzdaten Niederlassung Südwest (`netz/`)
+
+Die Action **„Netzdaten aktualisieren“** (`tools/netz.mjs`) erzeugt je Autobahn eine Datei `netz/<A5>.json` mit OSM-Achsen und km-Tafeln, BKG-Kilometrierung und ASB-Abschnitten/Ästen (aus `werkdaten/asb/`, BASt BISStra 2026q2) sowie `netz/index.json` (wird in `index.html` eingesetzt).
+Gebiet: Landesgrenze Baden-Württemberg (OSM) plus die Strecken in Rheinland-Pfalz und Hessen laut autobahn.de (Autobahnmeistereien Ruchheim, Kandel, Mannheim). Die App lädt eine Datei, sobald Standort oder Kartenmitte in der Nähe der Autobahn liegt oder der Umrechner sie braucht.

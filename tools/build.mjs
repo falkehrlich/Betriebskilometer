@@ -12,6 +12,8 @@ for (const f of fs.readdirSync(ROOT)) {
     fs.copyFileSync(path.join(ROOT, f), path.join(DIST, f));
   }
 }
+// Netzdaten je Autobahn (Niederlassung Südwest) – werden von der App bei Bedarf nachgeladen
+if (fs.existsSync(path.join(ROOT, 'netz'))) fs.cpSync(path.join(ROOT, 'netz'), path.join(DIST, 'netz'), { recursive: true });
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',

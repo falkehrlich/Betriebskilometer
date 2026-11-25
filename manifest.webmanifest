@@ -1,7 +1,7 @@
 {
   "name": "Betriebskilometer",
   "short_name": "Betriebskilometer",
-  "description": "Betriebs-Kilometer auf Autobahnen – GPS-Position zu Betr.-km für A 8, A 81 und A 831",
+  "description": "Betriebs-Kilometer auf Autobahnen – GPS-Position zu Betr.-km und ASB-Lage im Gebiet der Autobahn GmbH, Niederlassung Südwest",
   "lang": "de",
   "start_url": "/",
   "scope": "/",
