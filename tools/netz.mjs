@@ -11,6 +11,8 @@ const REFS = ['A 5', 'A 6', 'A 8', 'A 61', 'A 65', 'A 67', 'A 81', 'A 98', 'A 65
 // Strecken außerhalb Baden-Württembergs (Autobahnmeistereien Ruchheim, Kandel, Mannheim) – Betr.-km von/bis
 const EXTRA = { 'A 5': [[546.5, 582.5]], 'A 6': [[500, 510], [555.5, 567.1]], 'A 61': [[351, 389.1]], 'A 65': [[100, 159.25]],
   'A 650': [[0, 14.2]], 'A 67': [[47.8, 59.5]], 'A 659': [[8.0, 14.6]] };
+// A 6 AK Frankenthal – Rheinbrücke (RLP): km-Angabe der AM weicht von der BKG-Kilometrierung ab -> Gebiet als Rechteck
+const EXTRA_BOX = { 'A 6': [[49.50, 8.30, 49.60, 8.47]] };
 const BBOX = [47.40, 7.30, 50.00, 10.60];   // s, w, n, e
 const HEADERS = { 'User-Agent': 'Betriebskilometer-Netzdaten (github.com/falkehrlich/Betriebskilometer)', 'Content-Type': 'application/x-www-form-urlencoded' };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -126,6 +128,7 @@ const byRef = {}; for (const b of BKG) (byRef[b[3]] = byRef[b[3]] || []).push(b)
 const inBW = (la, lo) => inRings(rings, la, lo);
 function inArea(ref, la, lo) {
   if (inBW(la, lo)) return true;
+  if ((EXTRA_BOX[ref] || []).some(([s, w, n, e]) => la >= s && la <= n && lo >= w && lo <= e)) return true;
   const ex = EXTRA[ref]; if (!ex) return false;
   for (const b of byRef[ref] || []) { const km = b[2] / 1000;
     if (ex.some(([f, t]) => km >= f - 0.3 && km <= t + 0.3) && hav(la, lo, b[0] / 1e6, b[1] / 1e6) < 1500) return true; }
@@ -134,6 +137,7 @@ function inArea(ref, la, lo) {
 const bkgArea = BKG.filter(b => inArea(b[3], b[0] / 1e6, b[1] / 1e6));
 fs.writeFileSync(path.join(W, 'gebiet.json'), JSON.stringify({ hinweis: 'Gebiet Niederlassung Südwest: Landesgrenze BW (© OSM-Mitwirkende, ODbL) + Strecken außerhalb laut autobahn.de', bw: rings, extra: EXTRA }));
 fs.writeFileSync(bkgFile, JSON.stringify(bkgArea));
+console.log('A 6 im Rechteck, BKG-km:', BKG.filter(b => b[3] === 'A 6' && b[0] / 1e6 > 49.5 && b[0] / 1e6 < 49.6 && b[1] / 1e6 < 8.47).map(b => b[2] / 1000).sort((a, b) => a - b).join(' '));
 console.log('BKG im Gebiet:', bkgArea.length, JSON.stringify(Object.fromEntries(REFS.map(r => [r, bkgArea.filter(b => b[3] === r).length]))));
 
 const O = await osm();
@@ -160,7 +164,7 @@ for (const ref of REFS) {
   const pts = new Map();
   for (const w of ways) for (const [la, lo] of w.geom) { const k = Math.round(la / 0.009) + ':' + Math.round(lo / 0.013); if (!pts.has(k)) pts.set(k, [+la.toFixed(3), +lo.toFixed(3)]); }
   for (const a of asb.filter(a => a.t !== 'Ast')) for (const [la, lo] of a.p) { const k = Math.round(la / 0.009) + ':' + Math.round(lo / 0.013); if (!pts.has(k)) pts.set(k, [+la.toFixed(3), +lo.toFixed(3)]); }
-  const kms = bkg.map(b => b[2] / 1000).concat(ms.map(m => parseFloat(String(m.tags.distance || '').replace(',', '.'))).filter(Number.isFinite));
+  const kms = bkg.length ? bkg.map(b => b[2] / 1000) : ms.map(m => parseFloat(String(m.tags.distance || '').replace(',', '.'))).filter(Number.isFinite);
   const nk = [...new Set(asb.flatMap(a => [a.k.slice(0, 7), a.k.slice(8, 15)]))];
   index.refs[ref] = { f: fkey(ref), km: kms.length ? [Math.floor(Math.min(...kms)) - 1, Math.ceil(Math.max(...kms)) + 1] : null, p: [...pts.values()], nk,
     n: { achsen: ways.length, tafeln: ms.length, bkg: bkg.length, abschnitte: asb.filter(a => a.t !== 'Ast').length, aeste: asb.filter(a => a.t === 'Ast').length } };
