@@ -97,7 +97,7 @@ async function bkgFetch() {
 }
 async function osm() {
   const env = `ST_MakeEnvelope(${BBOX[1]},${BBOX[0]},${BBOX[3]},${BBOX[2]},4326)`;
-  const L = await pp(`SELECT osm_id, tags, geom FROM postpass_line WHERE tags->>'highway'='motorway' AND tags->>'ref' ~ '${RE}' AND geom && ${env}`, 'Achsen');
+  const L = await pp(`SELECT osm_id, tags, geom FROM postpass_line WHERE tags->>'highway' IN ('motorway','trunk') AND tags->>'ref' ~ '${RE}' AND geom && ${env}`, 'Achsen');
   const P = L && (L.features || []).length ? await pp(`SELECT osm_id, tags, geom FROM postpass_point WHERE tags->>'highway'='milestone' AND geom && ${env}`, 'Tafeln') : null;
   if (L && P) {
     const ways = [], ms = []; const nid = new Map(); let next = -1;
@@ -108,7 +108,7 @@ async function osm() {
     return { ways, ms, stand: new Date().toISOString() };
   }
   const bb = BBOX.join(',');
-  const j = await op(`[out:json][timeout:300];(way["highway"="motorway"]["ref"~"${RE}"](${bb}););out body geom;`, 'Achsen');
+  const j = await op(`[out:json][timeout:300];(way["highway"~"^(motorway|trunk)$"]["ref"~"${RE}"](${bb}););out body geom;`, 'Achsen');
   if (!j) throw new Error('OSM nicht erreichbar');
   const ways = j.elements.filter(e => e.type === 'way').map(e => ({ id: e.id, tags: e.tags || {}, nodes: e.nodes, geom: e.geometry.map(g => [g.lat, g.lon]) }));
   const tiles = new Set(); ways.forEach(w => w.geom.forEach(([la, lo]) => tiles.add(Math.floor(la / 0.25) + ':' + Math.floor(lo / 0.25))));
